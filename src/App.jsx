@@ -7,7 +7,7 @@ import {
   Menu, CheckSquare, Briefcase, Map, Home, Calendar, Bell, Clock, Tag, 
   Filter, ArrowUpDown, Banknote, FileText, Sprout, Flower, MapPin, Key, 
   Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, 
-  ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
+  ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput, List
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -757,6 +757,7 @@ function App() {
                     </div>
                   )}
 
+                  {/* Kiralık/Satılık Etiketi */}
                   <div className="flex gap-2 mb-2">
                     {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
                     {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
@@ -820,8 +821,23 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* MODALLAR */}
+      {calendarSelectedDate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
+            <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
+            <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
+            <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin</p>
+            <textarea value={calendarInputText} onChange={(e) => setCalendarInputText(e.target.value)} placeholder="Randevu notu..." className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"/>
+            <div className="flex gap-2">
+              <button onClick={startListeningCalendar} className={`p-3 rounded-xl flex-shrink-0 transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}><Mic size={20}/></button>
+              <button onClick={handleCalendarAdd} className="flex-1 bg-indigo-600 text-white font-bold rounded-xl text-sm">EKLE</button>
+            </div>
+          </div>
+        </div>
+      )}
       
-      {/* MODAL: DOSYA YÜKLE */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -842,7 +858,6 @@ function App() {
         </div>
       )}
 
-      {/* MODAL: ŞEHİR YÖNETİMİ */}
       {showCityManagerModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
@@ -868,7 +883,7 @@ function App() {
         </div>
       )}
 
-      {/* MODAL: KAYIT DÜZENLEME */}
+      {/* Edit Item Modal */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
@@ -879,6 +894,7 @@ function App() {
                 <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200">#{editingItem.item.adNo || '---'}</span>
              </div>
              
+             {/* BÖLÜM (KATEGORİ) SEÇİMİ - TAŞIMA İÇİN */}
              <div className="flex items-center border rounded-lg bg-indigo-50 border-indigo-100 mb-2 p-2 gap-2">
                <span className="text-indigo-800 text-xs font-bold w-12">Bölüm:</span>
                <select 
@@ -891,6 +907,7 @@ function App() {
                <FolderInput size={16} className="text-indigo-400"/>
              </div>
 
+             {/* ŞEHİR SEÇİMİ */}
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
                <span className="text-slate-400 text-xs font-bold w-12">Şehir:</span>
                <select 
@@ -952,7 +969,6 @@ function App() {
         </div>
       )}
 
-      {/* MODAL: ETİKET YÖNETİMİ */}
       {showTagManagerModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
@@ -974,7 +990,6 @@ function App() {
         </div>
       )}
       
-      {/* MODAL: KATEGORİ DÜZENLEME */}
        {showEditCategoryModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
@@ -1001,7 +1016,6 @@ function App() {
         </div>
       )}
 
-      {/* MODAL: KURULUM */}
       {showInstallModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm relative my-8">
@@ -1013,7 +1027,6 @@ function App() {
         </div>
       )}
       
-      {/* MODAL: MANUEL KİŞİ EKLEME */}
       {showManualContactModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
