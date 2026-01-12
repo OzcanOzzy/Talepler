@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput, List
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -104,9 +104,10 @@ function App() {
   const [priceFilter, setPriceFilter] = useState({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
   
-  const [isCalendarView, setIsCalendarView] = useState(false);
+  // Takvim Görünümü State'leri
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+  const [calendarDetailDate, setCalendarDetailDate] = useState(null); // Detay görünümündeki tarih
+  const [calendarAddDate, setCalendarAddDate] = useState(null); // Ekleme modalı için tarih
   const [calendarInputText, setCalendarInputText] = useState('');
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -131,7 +132,7 @@ function App() {
 
   const alarmSound = useRef(null);
 
-  // --- FIREBASE VERİ DİNLEME VE BİRLEŞTİRME ---
+  // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
     const timeout = setTimeout(() => {
         if(loading) {
@@ -155,36 +156,23 @@ function App() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             
-            // --- KATEGORİ BİRLEŞTİRME ---
-            const dbCategories = data.categories || [];
-            
-            // 1. Kodda olanları güncelle
-            const mergedDefaults = defaultCategories.map(defCat => {
-               const foundInDb = dbCategories.find(c => c.id === defCat.id);
-               return foundInDb ? { ...defCat, items: foundInDb.items } : defCat;
+            let dbCategories = data.categories || [];
+            const mergedCategories = defaultCategories.map(defCat => {
+                const foundInDb = dbCategories.find(c => c.id === defCat.id);
+                return foundInDb ? { ...defCat, items: foundInDb.items } : defCat;
             });
+            const customCategories = dbCategories.filter(dbCat => !defaultCategories.some(defCat => defCat.id === dbCat.id));
+            setCategories([...mergedCategories, ...customCategories]);
 
-            // 2. Kullanıcının sonradan eklediklerini (Kodda olmayanları) bul ve ekle
-            const customCategories = dbCategories.filter(dbCat => 
-               !defaultCategories.some(defCat => defCat.id === dbCat.id)
-            );
-
-            setCategories([...mergedDefaults, ...customCategories]);
-
-            // --- ŞEHİR BİRLEŞTİRME ---
             const dbCities = data.cities || [];
             const mergedCities = defaultCities.map(defCity => {
                const foundInDb = dbCities.find(c => c.id === defCity.id);
                return foundInDb || defCity;
             });
-            const customCities = dbCities.filter(dbCity => 
-               !defaultCities.some(defCity => defCity.id === dbCity.id)
-            );
+            const customCities = dbCities.filter(dbCity => !defaultCities.some(defCity => defCity.id === dbCity.id));
             setCities([...mergedCities, ...customCities]);
 
-            // --- ETİKET BİRLEŞTİRME ---
             const dbTags = data.tags || [];
-            // Benzersizleri al
             const mergedTags = Array.from(new Set([...defaultTags, ...dbTags]));
             setAvailableTags(mergedTags);
 
@@ -420,17 +408,18 @@ function App() {
 
   const deleteItem = (catId, itemId) => {
     if(!confirm("Silmek istediğinize emin misiniz?")) return;
-    const newCategories = categories.map(c => { if (c.id === catId) return {...c, items: c.items.filter(i => i.id !== itemId)}; return c; });
+    const newCategories = categories.map(c => {
+       if (c.id === catId) return {...c, items: c.items.filter(i => i.id !== itemId)};
+       return c;
+    });
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
   };
 
   const saveItemChanges = () => {
     if (!editingItem) return;
-    
     let newCategories = [...categories];
     const { originalCatId, targetCatId, item } = editingItem;
-
     if (originalCatId === targetCatId) {
       newCategories = newCategories.map(c => {
         if (c.id === originalCatId) return { ...c, items: c.items.map(i => i.id === item.id ? item : i) };
@@ -440,13 +429,12 @@ function App() {
       newCategories = newCategories.map(c => { if (c.id === originalCatId) return { ...c, items: c.items.filter(i => i.id !== item.id) }; return c; });
       newCategories = newCategories.map(c => { if (c.id === targetCatId) return { ...c, items: [item, ...c.items] }; return c; });
     }
-
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
     setEditingItem(null);
   };
 
-  const handleCalendarAdd = () => { if(!calendarInputText) return; processCommand(calendarInputText, null, calendarSelectedDate); setCalendarSelectedDate(null); setCalendarInputText(''); };
+  const handleCalendarAdd = () => { if(!calendarInputText) return; processCommand(calendarInputText, null, calendarAddDate); setCalendarAddDate(null); setCalendarInputText(''); };
   const startListeningCalendar = () => { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) return alert("Desteklenmiyor"); const recognition = new SpeechRecognition(); recognition.lang = 'tr-TR'; recognition.onstart = () => setIsListening(true); recognition.onend = () => setIsListening(false); recognition.onresult = (e) => setCalendarInputText(e.results[0][0].transcript); recognition.start(); };
   
   const getProcessedItems = (items) => {
@@ -488,72 +476,34 @@ function App() {
   };
 
   const downloadAllData = () => {
-    let allItems = [];
-    categories.forEach(cat => { if(cat.items.length > 0) allItems = [...allItems, ...cat.items]; });
-    
-    // Tarihe göre değil, İlan Numarasına göre sırala (Büyükten Küçüğe)
-    allItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
-
-    let fullContent = `========================================================================\r\n`;
-    fullContent += `   EMLAK ASİSTANI - TÜM VERİLER (YEDEKLER)\r\n`;
-    fullContent += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
-    fullContent += `========================================================================\r\n\r\n`;
-
-    // Kategorilendirilmiş çıktı
+    let content = "--- EMLAK ASİSTANI TÜM KAYITLAR RAPORU ---\n\n";
     categories.forEach(cat => {
       if(cat.items.length > 0) {
-        fullContent += `\r\n>>> KATEGORİ: ${cat.title.toUpperCase()} (${cat.items.length} Kayıt) <<<\r\n`;
-        // O kategorideki itemleri sırala
-        const sortedItems = [...cat.items].sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
-        sortedItems.forEach(item => {
-           fullContent += `[#${item.adNo || '---'}] ${item.date} | ${item.cityName || 'Şehir Yok'} | ${item.dealType==='rent'?'KİRALIK':'SATILIK'}\r\n`;
-           fullContent += `Kişi: ${item.contactName || '-'} (${item.phone || '-'})\r\n`;
-           if(item.price) fullContent += `Fiyat: ${formatCurrency(item.price)}\r\n`;
-           fullContent += `Not: ${item.text}\r\n`;
-           fullContent += `------------------------------------------------------\r\n`;
-        });
+        content += `\n=== ${cat.title.toUpperCase()} (${cat.items.length}) ===\n`;
+        cat.items.forEach(item => { content += `[#${item.adNo}] ${item.date} | ${item.text}\n`; });
       }
     });
-
-    if (allItems.length === 0) return alert("İndirilecek kayıt yok.");
-    downloadFile(fullContent, `Tum_Kayitlar_${new Date().toLocaleDateString().replace(/\./g, '_')}.txt`);
-    setShowMenu(false);
-  };
-
-  const downloadFile = (content, filename) => {
-    const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8' });
     const element = document.createElement("a");
-    element.href = URL.createObjectURL(blob);
-    element.download = filename;
+    const file = new Blob(["\uFEFF" + content], {type: 'text/plain;charset=utf-8'});
+    element.href = URL.createObjectURL(file);
+    element.download = `Tum_Kayitlar.txt`;
     document.body.appendChild(element); element.click(); document.body.removeChild(element);
+    setShowMenu(false);
   };
 
   const downloadFilteredData = () => {
     const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
     const filteredItems = getProcessedItems(activeCategory.items);
     if (filteredItems.length === 0) { alert("Bu görünümde veri yok."); return; }
-    
-    // Sıralama (İlan No)
-    filteredItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
-
-    let content = `========================================================================\r\n`;
-    content += `   ${activeCategory.title.toUpperCase()} RAPORU\r\n`;
-    content += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
-    content += `========================================================================\r\n\r\n`;
-    
-    filteredItems.forEach((item) => {
-        content += `------------------------------------------------------------------------\r\n`;
-        content += `[#${item.adNo || '---'}]  ${item.cityName ? item.cityName.toUpperCase() : 'GENEL'}  |  ${item.dealType === 'rent' ? 'KİRALIK' : 'SATILIK'}  |  ${item.date}\r\n`;
-        content += `------------------------------------------------------------------------\r\n`;
-        if(item.contactName || item.phone) {
-          content += `MÜŞTERİ : ${item.contactName || 'İsimsiz'}\r\n`;
-          content += `TELEFON : ${item.phone || '-'}\r\n`;
-        }
-        if(item.price) content += `FİYAT   : ${formatCurrency(item.price)}\r\n`;
-        content += `\r\nDETAYLAR:\r\n${item.text}\r\n\r\n`;
+    let content = `--- ${activeCategory.title.toUpperCase()} RAPORU ---\n\n`;
+    filteredItems.forEach((item, index) => {
+      content += `${index + 1}) ${item.text}\n------------------\n`;
     });
-    
-    downloadFile(content, `${activeCategory.title}_Raporu.txt`);
+    const element = document.createElement("a");
+    const file = new Blob([content], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `Liste.txt`;
+    document.body.appendChild(element); element.click(); document.body.removeChild(element);
     setShowMenu(false);
   };
 
@@ -572,8 +522,6 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
-  // --- EKRAN TASARIMI ---
-  
   if (errorMsg) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -672,201 +620,238 @@ function App() {
         </div>
       </div>
 
-      {/* TAKVİM GEÇİŞ BUTONU */}
-      {activeTabId === 'cat_randevu' && (
-        <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200">
-          <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
-            {isCalendarView ? <><CheckSquare size={14}/> Liste Görünümü</> : <><CalendarDays size={14}/> Takvim Görünümü</>}
-          </button>
+      {/* ŞEHİR FİLTRELERİ */}
+      <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2">
+        <div className="flex px-2 gap-2 w-max items-center">
+          <MapPin size={14} className="text-slate-400"/>
+          <button onClick={() => setActiveCityFilter('all')} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>Tümü</button>
+          {cities.map(city => (
+            <button key={city.id} onClick={() => setActiveCityFilter(city.id)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === city.id ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>
+              {city.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* İŞLEM TİPİ FİLTRELERİ */}
+      {activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
+        <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2">
+          <div className="flex gap-2 w-max items-center">
+            <Wallet size={14} className="text-slate-400 mr-1"/>
+            <button onClick={() => setActiveDealType('all')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}>Tümü</button>
+            <button onClick={() => setActiveDealType('sale')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'sale' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-slate-200'}`}>Satılık</button>
+            <button onClick={() => setActiveDealType('rent')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'rent' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-slate-200'}`}>Kiralık</button>
+          </div>
         </div>
       )}
 
-      {/* FİLTRELER */}
-      {!isCalendarView && (
-        <>
-          <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2">
-            <div className="flex px-2 gap-2 w-max items-center">
-              <MapPin size={14} className="text-slate-400"/>
-              <button onClick={() => setActiveCityFilter('all')} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>Tümü</button>
-              {cities.map(city => (
-                <button key={city.id} onClick={() => setActiveCityFilter(city.id)} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === city.id ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>
-                  {city.title}
-                </button>
-              ))}
-            </div>
+      {/* DETAYLI FİLTRELER */}
+      {showFilters && (
+        <div className="bg-slate-100 border-b border-slate-200 p-3 z-10">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
+            <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
+              <option value="date_desc">En Yeni</option>
+              <option value="date_asc">En Eski</option>
+              <option value="price_asc">Fiyat (Artan)</option>
+              <option value="price_desc">Fiyat (Azalan)</option>
+            </select>
           </div>
-
-          {activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
-            <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2">
-              <div className="flex gap-2 w-max items-center">
-                <Wallet size={14} className="text-slate-400 mr-1"/>
-                <button onClick={() => setActiveDealType('all')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}>Tümü</button>
-                <button onClick={() => setActiveDealType('sale')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'sale' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-slate-200'}`}>Satılık</button>
-                <button onClick={() => setActiveDealType('rent')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'rent' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-slate-200'}`}>Kiralık</button>
-              </div>
-            </div>
-          )}
-
-          {showFilters && (
-            <div className="bg-slate-100 border-b border-slate-200 p-3 z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
-                <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
-                  <option value="date_desc">En Yeni</option>
-                  <option value="date_asc">En Eski</option>
-                  <option value="price_asc">Fiyat (Artan)</option>
-                  <option value="price_desc">Fiyat (Azalan)</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="text-slate-500 text-xs font-bold flex gap-1"><Banknote size={14}/> Fiyat:</div>
-                <input type="number" placeholder="Min" value={priceFilter.min} onChange={(e)=>setPriceFilter({...priceFilter, min: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
-                <input type="number" placeholder="Max" value={priceFilter.max} onChange={(e)=>setPriceFilter({...priceFilter, max: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
-              </div>
-              <div className="flex gap-2 w-full overflow-x-auto pb-1">
-                {availableTags.map(tag => (
-                  <button key={tag} onClick={() => toggleFilter(tag)} className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${activeFilters.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="text-slate-500 text-xs font-bold flex gap-1"><Banknote size={14}/> Fiyat:</div>
+            <input type="number" placeholder="Min" value={priceFilter.min} onChange={(e)=>setPriceFilter({...priceFilter, min: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+            <input type="number" placeholder="Max" value={priceFilter.max} onChange={(e)=>setPriceFilter({...priceFilter, max: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+          </div>
+          <div className="flex gap-2 w-full overflow-x-auto pb-1">
+            {availableTags.map(tag => (
+              <button key={tag} onClick={() => toggleFilter(tag)} className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${activeFilters.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* İÇERİK ALANI */}
-      <div className="flex-1 overflow-y-auto p-4 pb-36 bg-slate-50">
-        {/* TAKVİM GÖRÜNÜMÜ */}
-        {isCalendarView && activeTabId === 'cat_randevu' ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="flex justify-between items-center mb-4">
-              <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft/></button>
-              <h3 className="font-bold text-lg text-slate-800">{currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}</h3>
-              <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight/></button>
+      {/* İÇERİK ALANI (Split View for Randevu) */}
+      <div className="flex-1 overflow-hidden">
+        {activeTabId === 'cat_randevu' ? (
+          <div className="flex flex-col lg:flex-row h-full">
+            {/* SOL PANEL (LİSTE) */}
+            <div className="w-full lg:w-1/2 h-1/2 lg:h-full overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200 p-4">
+              {displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
+                <div className="space-y-3">
+                  {displayItems.map((item) => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                      {/* Kart İçeriği (Özet) */}
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">#{item.adNo}</span>
+                        {item.cityName && <span className="text-[10px] font-bold text-slate-500"><MapPin size={10} className="inline"/> {item.cityName}</span>}
+                      </div>
+                      <p className="text-slate-700 text-sm mb-2">{item.text}</p>
+                      <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+                        <span className="text-[10px] text-slate-400">{item.date}</span>
+                        <div className="flex gap-2">
+                          {item.alarmTime && <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50"><Calendar size={16}/></button>}
+                          <button onClick={() => setEditingItem({originalCatId: activeCategory.id, targetCatId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:text-blue-500"><Pencil size={16}/></button>
+                          <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">
-              {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="text-xs font-bold text-slate-400">{d}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth(currentCalendarDate).map((date, i) => {
-                if (!date) return <div key={i} className="aspect-square bg-transparent"></div>;
-                const dayEvents = categories.find(c => c.id === 'cat_randevu').items.filter(item => {
-                  if(!item.alarmTime) return false;
-                  const itemDate = new Date(item.alarmTime);
-                  return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth() && itemDate.getFullYear() === date.getFullYear();
-                });
 
-                return (
-                  <div key={i} className={`aspect-square rounded-lg border text-xs flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length > 0 ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}
-                    onClick={() => setCalendarSelectedDate(date)} 
-                  >
-                    {date.getDate()}
-                    {dayEvents.length > 0 && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1"></div>}
-                    <span className="absolute top-0.5 right-0.5 text-slate-300 hover:text-blue-500"><Plus size={10}/></span>
+            {/* SAĞ PANEL (TAKVİM) */}
+            <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-slate-50 p-4 overflow-y-auto">
+               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 h-full flex flex-col">
+                  {/* Takvim Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    {!calendarDetailDate && <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))}><ChevronLeft/></button>}
+                    <h3 className="font-bold text-lg text-slate-800">
+                      {calendarDetailDate ? calendarDetailDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
+                    </h3>
+                    {calendarDetailDate ? (
+                      <button onClick={() => setCalendarDetailDate(null)} className="p-1 bg-red-100 text-red-600 rounded-full"><X size={20}/></button>
+                    ) : (
+                      <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))}><ChevronRight/></button>
+                    )}
                   </div>
-                );
-              })}
+
+                  {/* Takvim Gövdesi */}
+                  {!calendarDetailDate ? (
+                    <>
+                      <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                        {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="text-xs font-bold text-slate-400">{d}</div>)}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 auto-rows-fr flex-1">
+                        {getDaysInMonth(currentCalendarDate).map((date, i) => {
+                          if (!date) return <div key={i}></div>;
+                          const dayEvents = categories.find(c => c.id === 'cat_randevu').items.filter(item => {
+                            if(!item.alarmTime) return false;
+                            const itemDate = new Date(item.alarmTime);
+                            return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth();
+                          });
+                          return (
+                            <div key={i} onClick={() => setCalendarDetailDate(date)} className={`aspect-square rounded border flex flex-col items-center justify-center text-xs relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}>
+                              {date.getDate()}
+                              {dayEvents.length > 0 && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1"></div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    // GÜNLÜK DETAY GÖRÜNÜMÜ
+                    <div className="flex-1 overflow-y-auto">
+                       <div className="space-y-2">
+                         {categories.find(c => c.id === 'cat_randevu').items
+                           .filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarDetailDate.toDateString())
+                           .sort((a, b) => new Date(a.alarmTime) - new Date(b.alarmTime))
+                           .map(item => (
+                             <div key={item.id} className="bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500">
+                               <div className="flex justify-between font-bold text-xs text-indigo-800 mb-1">
+                                 <span>{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+                                 <span>#{item.adNo}</span>
+                               </div>
+                               <p className="text-sm text-slate-700">{item.text}</p>
+                               <div className="mt-2 flex justify-end gap-2">
+                                  <button onClick={() => addToGoogleCalendar(item)} className="text-blue-600 text-xs"><Calendar size={14}/></button>
+                                  <button onClick={() => setEditingItem({originalCatId: 'cat_randevu', targetCatId: 'cat_randevu', item: {...item}})} className="text-slate-500 text-xs"><Pencil size={14}/></button>
+                               </div>
+                             </div>
+                           ))
+                         }
+                         {categories.find(c => c.id === 'cat_randevu').items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarDetailDate.toDateString()).length === 0 && (
+                           <p className="text-center text-slate-400 italic py-10">Bu tarihte randevu yok.</p>
+                         )}
+                       </div>
+                    </div>
+                  )}
+               </div>
             </div>
           </div>
         ) : (
-          /* LİSTE GÖRÜNÜMÜ */
-          displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
-            <div className="space-y-3">
-              {displayItems.map((item) => (
-                <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
-                  <div className="flex justify-between items-start mb-2">
-                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
-                        {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
-                     </div>
-                     {item.price > 0 && (
-                       <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
-                         <Banknote size={12}/>{formatCurrency(item.price)}
+          /* DİĞER SEKMELER İÇİN LİSTE GÖRÜNÜMÜ */
+          <div className="p-4 pb-36 overflow-y-auto h-full">
+            {displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
+              <div className="space-y-3">
+                {displayItems.map((item) => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                    <div className="flex justify-between items-start mb-2">
+                       <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">#{item.adNo || '---'}</span>
+                          {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
                        </div>
-                     )}
-                  </div>
-                  
-                  {(item.phone || item.contactName) && (
-                    <div className="flex items-center gap-2 mb-2 text-xs text-slate-700">
-                      <User size={14} className="text-slate-400"/>
-                      <span className="font-bold">{item.contactName || 'İsimsiz'}</span>
-                      <span className="text-slate-400">|</span>
-                      <Phone size={14} className="text-slate-400"/>
-                      <a href={`tel:${item.phone}`} className="text-blue-600 font-mono hover:underline">{item.phone}</a>
+                       {item.price > 0 && <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">{formatCurrency(item.price)}</span>}
                     </div>
-                  )}
-
-                  <div className="flex gap-2 mb-2">
-                    {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
-                    {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
-                  </div>
-
-                  <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
-                  
-                  {item.tags && item.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {item.tags.map(tag => (
-                        <span key={tag} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100 font-medium">{tag}</span>
-                      ))}
+                    {(item.phone || item.contactName) && (
+                      <div className="flex items-center gap-2 mb-2 text-xs text-slate-700">
+                        <User size={14} className="text-slate-400"/>
+                        <span className="font-bold">{item.contactName || 'İsimsiz'}</span>
+                        <a href={`tel:${item.phone}`} className="text-blue-600 font-mono hover:underline">{item.phone}</a>
+                      </div>
+                    )}
+                    <div className="flex gap-2 mb-2">
+                      {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
+                      {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
                     </div>
-                  )}
-
-                  {item.alarmActive && item.alarmTime && (
-                    <div className="mb-2 flex items-center gap-2 bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-xs border border-yellow-200 w-fit">
-                      <Clock size={12}/> {new Date(item.alarmTime).toLocaleString('tr-TR')}
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-50">
-                    <span className="text-[10px] text-slate-400">{item.date}</span>
-                    <div className="flex gap-2">
-                      {item.alarmTime && (
-                        <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100" title="Takvime Ekle"><Calendar size={16}/></button>
-                      )}
-                      <button onClick={() => setEditingItem({originalCatId: activeCategory.id, targetCatId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
-                      <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                    <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {item.tags.map(tag => (
+                          <span key={tag} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100 font-medium">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+                      <span className="text-[10px] text-slate-400">{item.date}</span>
+                      <div className="flex gap-2">
+                        {item.alarmTime && <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50"><Calendar size={16}/></button>}
+                        <button onClick={() => setEditingItem({originalCatId: activeCategory.id, targetCatId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:text-blue-500"><Pencil size={16}/></button>
+                        <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* GİRİŞ ALANI */}
-      {!isCalendarView && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-20">
-          {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
-          <div className="flex gap-2 items-end">
-            <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
-            <div className="flex-1 relative">
-              <textarea 
-                value={inputText} 
-                onChange={(e) => setInputText(e.target.value)} 
-                onKeyDown={(e) => { 
-                  if(e.key === 'Enter' && !e.shiftKey) { 
-                    e.preventDefault(); 
-                    processCommand(inputText); 
-                  } 
-                }}
-                placeholder="Yazın veya konuşun..." 
-                className="w-full bg-slate-100 rounded-xl p-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none h-14"
-              />
-              {inputText && <button onClick={() => processCommand(inputText)} className="absolute right-2 top-2 text-blue-600 bg-white p-1.5 rounded-lg shadow-sm"><Send size={16}/></button>}
-            </div>
-            <button onClick={startListening} className={`p-4 rounded-xl mb-1 flex-shrink-0 transition-all shadow-lg ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-white active:scale-95'}`}><Mic size={24}/></button>
+      {/* GİRİŞ ALANI (SADECE LİSTE GÖRÜNÜMÜ VEYA NORMAL SEKME) */}
+      {/* Randevu sekmesinde split view olduğunda, giriş alanı SOL panele ait olmalı veya en altta sabit kalmalı. */}
+      {/* Burada tüm ekranın altına sabitliyoruz. */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-20">
+        {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
+        <div className="flex gap-2 items-end">
+          <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
+          <div className="flex-1 relative">
+            <textarea 
+              value={inputText} 
+              onChange={(e) => setInputText(e.target.value)} 
+              onKeyDown={(e) => { 
+                if(e.key === 'Enter' && !e.shiftKey) { 
+                  e.preventDefault(); 
+                  processCommand(inputText); 
+                } 
+              }}
+              placeholder="Yazın veya konuşun..." 
+              className="w-full bg-slate-100 rounded-xl p-3 pr-10 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none h-14"
+            />
+            {inputText && <button onClick={() => processCommand(inputText)} className="absolute right-2 top-2 text-blue-600 bg-white p-1.5 rounded-lg shadow-sm"><Send size={16}/></button>}
           </div>
+          <button onClick={startListening} className={`p-4 rounded-xl mb-1 flex-shrink-0 transition-all shadow-lg ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-white active:scale-95'}`}><Mic size={24}/></button>
         </div>
-      )}
+      </div>
 
       {/* MODALLAR */}
-      {calendarSelectedDate && (
+      {calendarAddDate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
-            <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
-            <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
+            <button onClick={() => setCalendarAddDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
+            <h3 className="font-bold text-lg mb-1">{calendarAddDate.toLocaleDateString('tr-TR')}</h3>
             <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin</p>
             <textarea value={calendarInputText} onChange={(e) => setCalendarInputText(e.target.value)} placeholder="Randevu notu..." className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"/>
             <div className="flex gap-2">
