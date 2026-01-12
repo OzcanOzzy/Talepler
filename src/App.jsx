@@ -25,12 +25,13 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="h-screen flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center">
+          <AlertTriangle size={64} className="mb-4 text-red-600"/>
           <h1 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h1>
           <p className="text-sm mb-4 bg-white p-4 rounded border border-red-200 font-mono text-left w-full overflow-auto">
             {this.state.error?.toString()}
           </p>
-          <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold">
-             Sayfayı Yenile
+          <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center gap-2">
+             <RefreshCcw size={20}/> Sayfayı Yenile
           </button>
         </div>
       );
@@ -39,7 +40,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// --- FIREBASE AYARLARI (SİZİN VERDİĞİNİZ) ---
+// --- FIREBASE AYARLARI ---
 const firebaseConfig = {
   apiKey: "AIzaSyD6ZVlcJYZPfJ5RQEWZGnrh4sBmwHS9_2U",
   authDomain: "randevular-talepler.firebaseapp.com",
@@ -59,7 +60,7 @@ try {
   console.error("Firebase Başlatma Hatası:", e);
 }
 
-// --- ANA İÇERİK (DÜZELTİLDİ: İsmi App Olarak Değiştirildi) ---
+// --- ANA İÇERİK ---
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +139,7 @@ function App() {
     }, 15000);
 
     if (!auth) { 
-      setErrorMsg("Firebase başlatılamadı."); 
+      setErrorMsg("Firebase başlatılamadı. Lütfen internet bağlantınızı kontrol edin."); 
       setLoading(false); 
       return; 
     }
@@ -151,7 +152,7 @@ function App() {
         const unsubscribeData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if(data.categories) setCategories(data.categories);
+            if(data.categories && Array.isArray(data.categories)) setCategories(data.categories);
             if(data.cities) setCities(data.cities);
             if(data.tags) setAvailableTags(data.tags);
             if(data.lastAdNumber) setLastAdNumber(data.lastAdNumber);
@@ -392,7 +393,12 @@ function App() {
 
   const saveItemChanges = () => {
     if (!editingItem) return;
-    const newCategories = categories.map(c => { if (c.id === editingItem.catId) { return { ...c, items: c.items.map(i => i.id === editingItem.item.id ? editingItem.item : i) }; } return c; });
+    const newCategories = categories.map(c => {
+      if (c.id === editingItem.catId) {
+        return { ...c, items: c.items.map(i => i.id === editingItem.item.id ? editingItem.item : i) };
+      }
+      return c;
+    });
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
     setEditingItem(null);
@@ -486,6 +492,9 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
+  const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
+  const displayItems = getProcessedItems(activeCategory.items);
+
   if (errorMsg) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -511,7 +520,7 @@ function App() {
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
-        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V32</p>
+        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V33</p>
         <button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg">
            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap
         </button>
@@ -531,7 +540,7 @@ function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V32</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V33</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -646,7 +655,6 @@ function App() {
 
       {/* İÇERİK ALANI */}
       <div className="flex-1 overflow-y-auto p-4 pb-36 bg-slate-50">
-        
         {/* TAKVİM GÖRÜNÜMÜ */}
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -666,11 +674,8 @@ function App() {
                   const itemDate = new Date(item.alarmTime);
                   return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth() && itemDate.getFullYear() === date.getFullYear();
                 });
-
                 return (
-                  <div key={i} className={`aspect-square rounded-lg border text-xs flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length > 0 ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}
-                    onClick={() => setCalendarSelectedDate(date)} 
-                  >
+                  <div key={i} className={`aspect-square rounded-lg border text-xs flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length > 0 ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`} onClick={() => setCalendarSelectedDate(date)}>
                     {date.getDate()}
                     {dayEvents.length > 0 && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1"></div>}
                     <span className="absolute top-0.5 right-0.5 text-slate-300 hover:text-blue-500"><Plus size={10}/></span>
@@ -687,57 +692,18 @@ function App() {
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
                   <div className="flex justify-between items-start mb-2">
                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
+                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">#{item.adNo || '---'}</span>
                         {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
                      </div>
-                     {item.price > 0 && (
-                       <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
-                         <Banknote size={12}/>{formatCurrency(item.price)}
-                       </div>
-                     )}
+                     {item.price > 0 && <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">{formatCurrency(item.price)}</span>}
                   </div>
-                  
-                  {(item.phone || item.contactName) && (
-                    <div className="flex items-center gap-2 mb-2 text-xs text-slate-700">
-                      <User size={14} className="text-slate-400"/>
-                      <span className="font-bold">{item.contactName || 'İsimsiz'}</span>
-                      <span className="text-slate-400">|</span>
-                      <Phone size={14} className="text-slate-400"/>
-                      <a href={`tel:${item.phone}`} className="text-blue-600 font-mono hover:underline">{item.phone}</a>
-                    </div>
-                  )}
-
-                  {/* Kiralık/Satılık Etiketi */}
-                  <div className="flex gap-2 mb-2">
-                    {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
-                    {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
-                  </div>
-
-                  <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
-                  
-                  {/* Özellik Etiketleri */}
-                  {item.tags && item.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {item.tags.map(tag => (
-                        <span key={tag} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100 font-medium">{tag}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {item.alarmActive && item.alarmTime && (
-                    <div className="mb-2 flex items-center gap-2 bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-xs border border-yellow-200 w-fit">
-                      <Clock size={12}/> {new Date(item.alarmTime).toLocaleString('tr-TR')}
-                    </div>
-                  )}
-
+                  <p className="text-slate-700 text-sm mb-2 whitespace-pre-wrap">{item.text}</p>
                   <div className="flex justify-between items-center pt-2 border-t border-slate-50">
                     <span className="text-[10px] text-slate-400">{item.date}</span>
                     <div className="flex gap-2">
-                      {item.alarmTime && (
-                        <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100" title="Takvime Ekle"><Calendar size={16}/></button>
-                      )}
-                      <button onClick={() => setEditingItem({catId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
-                      <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                       {item.alarmTime && <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50"><Calendar size={16}/></button>}
+                       <button onClick={() => setEditingItem({catId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:text-blue-500"><Pencil size={16}/></button>
+                       <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 </div>
