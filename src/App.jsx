@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Edit3, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle
 } from 'lucide-react';
 
 // --- BURAYI KENDİ FIREBASE BİLGİLERİNİZLE DOLDURUN ---
@@ -110,21 +110,23 @@ export default function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    if (!auth) { setConfigMissing(true); setLoading(false); return; }
+    if (!auth) { 
+      setConfigMissing(true); 
+      setLoading(false); 
+      return; 
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       
       if (currentUser) {
-        // *** ÖNEMLİ DEĞİŞİKLİK: ARTIK HER KULLANICININ KENDİ ID'SİNE KAYDEDİYORUZ ***
-        // Eski: doc(db, "company", "data") -> Herkes ortak
-        // Yeni: doc(db, "users", currentUser.uid) -> Herkes özel
+        // Kullanıcıya özel dökümanı dinle
         const docRef = doc(db, "users", currentUser.uid);
         
         const unsubscribeData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if(data.categories) setCategories(data.categories);
+            if(data.categories && Array.isArray(data.categories)) setCategories(data.categories);
             if(data.cities) setCities(data.cities);
             if(data.tags) setAvailableTags(data.tags);
             if(data.lastAdNumber) setLastAdNumber(data.lastAdNumber);
@@ -132,10 +134,10 @@ export default function App() {
             // İlk kez giren danışman için temiz sayfa oluştur
             saveToCloud(defaultCategories, defaultCities, defaultTags, 1000, currentUser);
           }
-          setLoading(false); // Veri gelince yüklemeyi bitir
+          setLoading(false); 
         }, (error) => {
            console.error("Veri okuma hatası:", error);
-           setLoading(false);
+           setLoading(false); // Hata olsa bile yüklemeyi bitir ki ekran açılsın
         });
         return () => unsubscribeData();
       } else {
@@ -156,7 +158,6 @@ export default function App() {
   const saveToCloud = async (newCats, newCities, newTags, newAdNum, currentUser = user) => {
     if (!currentUser || !db) return;
     try {
-      // *** ÖNEMLİ: KİŞİYE ÖZEL KAYIT ***
       await setDoc(doc(db, "users", currentUser.uid), {
         categories: newCats,
         cities: newCities,
@@ -190,7 +191,7 @@ export default function App() {
           }
         });
       });
-    }, 30000);
+    }, 30000); 
     return () => clearInterval(interval);
   }, [categories]);
 
@@ -211,7 +212,6 @@ export default function App() {
     } else triggerNotification("Test Başarılı!");
   };
 
-  // --- GOOGLE TAKVİM ---
   const addToGoogleCalendar = (item) => {
     if (!item.alarmTime) return alert("Lütfen önce bir alarm tarihi belirleyin.");
     const startDate = new Date(item.alarmTime);
@@ -233,7 +233,6 @@ export default function App() {
     return days;
   };
 
-  // --- BİLGİ AYIKLAMA ---
   const extractInfo = (text) => {
     const phoneRegex = /(0?5\d{2})[\s-]?(\d{3})[\s-]?(\d{2})[\s-]?(\d{2})|(\d{10,11})/;
     const phoneMatch = text.match(phoneRegex);
@@ -297,8 +296,6 @@ export default function App() {
     };
 
     let targetCategoryId = 'cat_todo';
-    
-    // --- ÖNCELİK KONTROLÜ ---
     const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı'];
     const isAppointment = appointmentTriggers.some(trigger => lowerText.includes(trigger));
 
@@ -331,7 +328,6 @@ export default function App() {
     setTimeout(() => setFeedbackMsg(''), 3000);
   };
 
-  // --- İŞLEMLER ---
   const deleteItem = (catId, itemId) => {
     if(!confirm("Silmek istediğinize emin misiniz?")) return;
     const newCategories = categories.map(c => {
@@ -389,7 +385,6 @@ export default function App() {
 
   const formatCurrency = (amount) => { if (!amount) return ''; return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(amount); };
   const toggleFilter = (tag) => { if (activeFilters.includes(tag)) setActiveFilters(activeFilters.filter(t => t !== tag)); else setActiveFilters([...activeFilters, tag]); };
-  
   const handleContactPick = async () => { if ('contacts' in navigator && 'ContactsManager' in window) { try { const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false }); if (contacts.length) setInputText(`${contacts[0].name[0]} (${contacts[0].tel ? contacts[0].tel[0] : ''}) - `); } catch (ex) { setShowManualContactModal(true); } } else { setShowManualContactModal(true); } };
   
   const startListening = () => {
@@ -500,19 +495,41 @@ export default function App() {
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
   // --- EKRAN TASARIMI ---
-  if (configMissing) return <div className="h-screen flex items-center justify-center p-6 bg-slate-900 text-white">Lütfen App.jsx içindeki firebaseConfig alanını doldurun.</div>;
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 size={32} className="animate-spin text-blue-600"/></div>;
   
+  // 1. CONFIG EKSİK UYARISI
+  if (configMissing) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
+        <AlertTriangle size={64} className="text-yellow-500 mb-4"/>
+        <h1 className="text-2xl font-bold mb-2">Kurulum Eksik</h1>
+        <p className="text-slate-300 text-sm mb-6">Lütfen <code>App.jsx</code> dosyasındaki <strong>firebaseConfig</strong> alanını doldurun.</p>
+      </div>
+    );
+  }
+
+  // 2. YÜKLENİYOR
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 size={32} className="animate-spin text-blue-600"/>
+      </div>
+    );
+  }
+  
+  // 3. GİRİŞ EKRANI
   if (!user) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
-        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V27</p>
+        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V28</p>
         <button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100">Google ile Giriş Yap</button>
       </div>
     );
   }
+
+  const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
+  const displayItems = getProcessedItems(activeCategory.items);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
@@ -526,7 +543,7 @@ export default function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V27</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V28</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName.split(' ')[0]}</p>
                </div>
             </div>
@@ -576,7 +593,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* TAKVİM GEÇİŞ BUTONU (RANDEVULARDA) */}
+      {/* TAKVİM GEÇİŞ BUTONU */}
       {activeTabId === 'cat_randevu' && (
         <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200">
           <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
@@ -585,7 +602,7 @@ export default function App() {
         </div>
       )}
 
-      {/* FİLTRELER (TAKVİMDE GİZLİ) */}
+      {/* FİLTRELER */}
       {!isCalendarView && (
         <>
           <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2">
@@ -712,7 +729,7 @@ export default function App() {
 
                   <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
                   
-                  {/* Özellik Etiketleri (Eski Kutu Haline Döndü) */}
+                  {/* Özellik Etiketleri */}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {item.tags.map(tag => (
@@ -744,7 +761,7 @@ export default function App() {
         )}
       </div>
 
-      {/* GİRİŞ ALANI (ENTER DÜZELTİLDİ) */}
+      {/* GİRİŞ ALANI */}
       {!isCalendarView && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-20">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
@@ -776,32 +793,10 @@ export default function App() {
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
             <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
             <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
-            <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin (Saat 09:00 varsayılan)</p>
-            
-            <div className="bg-slate-50 p-3 rounded-xl border mb-3 max-h-32 overflow-y-auto">
-               <h4 className="text-xs font-bold text-slate-400 mb-2 uppercase">Bu Tarihteki Kayıtlar:</h4>
-               {categories[0].items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString()).length === 0 ? (
-                 <p className="text-xs text-slate-400 italic">Kayıt yok.</p>
-               ) : (
-                 categories[0].items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString()).map(item => (
-                   <div key={item.id} className="text-xs border-b border-slate-100 py-1 last:border-0">
-                     <span className="font-bold">{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span> - {item.text}
-                   </div>
-                 ))
-               )}
-            </div>
-
-            <textarea 
-              value={calendarInputText} 
-              onChange={(e) => setCalendarInputText(e.target.value)} 
-              placeholder="Randevu notu..." 
-              className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"
-            />
-            
+            <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin</p>
+            <textarea value={calendarInputText} onChange={(e) => setCalendarInputText(e.target.value)} placeholder="Randevu notu..." className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"/>
             <div className="flex gap-2">
-              <button onClick={startListeningCalendar} className={`p-3 rounded-xl flex-shrink-0 transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                <Mic size={20}/>
-              </button>
+              <button onClick={startListeningCalendar} className={`p-3 rounded-xl flex-shrink-0 transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}><Mic size={20}/></button>
               <button onClick={handleCalendarAdd} className="flex-1 bg-indigo-600 text-white font-bold rounded-xl text-sm">EKLE</button>
             </div>
           </div>
@@ -855,17 +850,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Edit Item Modal (Alarm ve Takvime Ekle Dahil) */}
+      {/* Edit Item Modal */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
-             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Edit3 size={18} className="text-blue-500"/> Kaydı Düzenle
-                </h3>
-                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200">#{editingItem.item.adNo || '---'}</span>
-             </div>
-             
+             <h3 className="font-bold mb-4 text-slate-800">Kaydı Düzenle</h3>
              <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
              <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
@@ -875,14 +864,7 @@ export default function App() {
              
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
                <span className="text-slate-400 text-xs font-bold">Şehir:</span>
-               <select 
-                 value={editingItem.item.cityId || ''} 
-                 onChange={(e) => {
-                    const selectedCity = cities.find(c => c.id === e.target.value);
-                    setEditingItem({ ...editingItem, item: { ...editingItem.item, cityId: e.target.value, cityName: selectedCity ? selectedCity.title : '' } })
-                 }}
-                 className="bg-transparent w-full text-sm outline-none"
-               >
+               <select value={editingItem.item.cityId || ''} onChange={(e) => { const selectedCity = cities.find(c => c.id === e.target.value); setEditingItem({ ...editingItem, item: { ...editingItem.item, cityId: e.target.value, cityName: selectedCity ? selectedCity.title : '' } }) }} className="bg-transparent w-full text-sm outline-none">
                  <option value="">Seçilmedi</option>
                  {cities.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                </select>
@@ -890,11 +872,7 @@ export default function App() {
 
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
                <span className="text-slate-400 text-xs font-bold">Tip:</span>
-               <select 
-                 value={editingItem.item.dealType || 'sale'} 
-                 onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, dealType: e.target.value } })}
-                 className="bg-transparent w-full text-sm outline-none"
-               >
+               <select value={editingItem.item.dealType || 'sale'} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, dealType: e.target.value } })} className="bg-transparent w-full text-sm outline-none">
                  <option value="sale">Satılık</option>
                  <option value="rent">Kiralık</option>
                </select>
@@ -902,7 +880,6 @@ export default function App() {
 
              <textarea value={editingItem.item.text} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, text: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm h-20"/>
              
-             {/* ALARM BÖLÜMÜ */}
              <div className="bg-yellow-50 p-3 rounded-xl border-2 border-yellow-200 mb-4 shadow-sm">
                <div className="flex justify-between items-center mb-2">
                  <label className="text-sm font-bold text-yellow-800 flex items-center gap-1"><Clock size={16}/> Alarm Kur</label>
