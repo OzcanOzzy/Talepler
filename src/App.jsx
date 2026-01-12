@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -393,12 +393,37 @@ function App() {
 
   const saveItemChanges = () => {
     if (!editingItem) return;
-    const newCategories = categories.map(c => {
-      if (c.id === editingItem.catId) {
-        return { ...c, items: c.items.map(i => i.id === editingItem.item.id ? editingItem.item : i) };
-      }
-      return c;
-    });
+    
+    // GÜNCELLENMİŞ MANTIK: Kategori Değişikliği (Taşıma) Desteği
+    let newCategories = [...categories];
+    const { originalCatId, targetCatId, item } = editingItem;
+
+    if (originalCatId === targetCatId) {
+      // Aynı kategori içinde güncelleme
+      newCategories = newCategories.map(c => {
+        if (c.id === originalCatId) {
+          return { ...c, items: c.items.map(i => i.id === item.id ? item : i) };
+        }
+        return c;
+      });
+    } else {
+      // Kategori Değiştirme (Taşıma)
+      // 1. Eskisinden sil
+      newCategories = newCategories.map(c => {
+        if (c.id === originalCatId) {
+          return { ...c, items: c.items.filter(i => i.id !== item.id) };
+        }
+        return c;
+      });
+      // 2. Yenisine ekle
+      newCategories = newCategories.map(c => {
+        if (c.id === targetCatId) {
+          return { ...c, items: [item, ...c.items] };
+        }
+        return c;
+      });
+    }
+
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
     setEditingItem(null);
@@ -525,7 +550,6 @@ function App() {
     );
   }
 
-  // --- displayItems Tanımı (DÜZELTİLDİ: Doğru Yere Taşındı) ---
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
@@ -541,7 +565,7 @@ function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V34</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V35</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -656,6 +680,7 @@ function App() {
 
       {/* İÇERİK ALANI */}
       <div className="flex-1 overflow-y-auto p-4 pb-36 bg-slate-50">
+        
         {/* TAKVİM GÖRÜNÜMÜ */}
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -745,7 +770,7 @@ function App() {
                       {item.alarmTime && (
                         <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100" title="Takvime Ekle"><Calendar size={16}/></button>
                       )}
-                      <button onClick={() => setEditingItem({catId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
+                      <button onClick={() => setEditingItem({originalCatId: activeCategory.id, targetCatId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
                       <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   </div>
@@ -843,7 +868,7 @@ function App() {
         </div>
       )}
 
-      {/* Edit Item Modal */}
+      {/* Edit Item Modal (Taşıma Özelliği Eklendi) */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
@@ -853,15 +878,23 @@ function App() {
                 </h3>
                 <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200">#{editingItem.item.adNo || '---'}</span>
              </div>
-             <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
-             <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
-             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
-               <span className="text-slate-400 text-xs font-bold">Fiyat:</span>
-               <input type="number" value={editingItem.item.price || ''} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, price: e.target.value } })} className="bg-transparent w-full text-sm outline-none" placeholder="0"/>
-             </div>
              
+             {/* BÖLÜM (KATEGORİ) SEÇİMİ - TAŞIMA İÇİN */}
+             <div className="flex items-center border rounded-lg bg-indigo-50 border-indigo-100 mb-2 p-2 gap-2">
+               <span className="text-indigo-800 text-xs font-bold w-12">Bölüm:</span>
+               <select 
+                 value={editingItem.targetCatId} 
+                 onChange={(e) => setEditingItem({ ...editingItem, targetCatId: e.target.value })}
+                 className="bg-transparent w-full text-sm outline-none text-indigo-900 font-medium"
+               >
+                 {categories.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+               </select>
+               <FolderInput size={16} className="text-indigo-400"/>
+             </div>
+
+             {/* ŞEHİR SEÇİMİ */}
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
-               <span className="text-slate-400 text-xs font-bold">Şehir:</span>
+               <span className="text-slate-400 text-xs font-bold w-12">Şehir:</span>
                <select 
                  value={editingItem.item.cityId || ''} 
                  onChange={(e) => {
@@ -873,8 +906,16 @@ function App() {
                  <option value="">Seçilmedi</option>
                  {cities.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                </select>
+               <MapPin size={16} className="text-slate-400"/>
              </div>
 
+             <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
+             <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
+             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
+               <span className="text-slate-400 text-xs font-bold">Fiyat:</span>
+               <input type="number" value={editingItem.item.price || ''} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, price: e.target.value } })} className="bg-transparent w-full text-sm outline-none" placeholder="0"/>
+             </div>
+             
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
                <span className="text-slate-400 text-xs font-bold">Tip:</span>
                <select 
