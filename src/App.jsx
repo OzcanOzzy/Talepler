@@ -60,7 +60,7 @@ try {
   console.error("Firebase Başlatma Hatası:", e);
 }
 
-// --- ANA İÇERİK (DÜZELTİLDİ: export default kaldırıldı) ---
+// --- ANA İÇERİK ---
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -103,15 +103,12 @@ function App() {
   const [sortOption, setSortOption] = useState('date_desc');
   const [priceFilter, setPriceFilter] = useState({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
-  
-  // Takvim Görünümü State'leri
+   
   const [isCalendarView, setIsCalendarView] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [calendarInputText, setCalendarInputText] = useState('');
-  const [calendarDetailDate, setCalendarDetailDate] = useState(null);
 
-  // Modallar
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -134,12 +131,12 @@ function App() {
 
   const alarmSound = useRef(null);
 
-  // --- FIREBASE VERİ DİNLEME ---
+  // --- FIREBASE VERİ DİNLEME VE BİRLEŞTİRME ---
   useEffect(() => {
     const timeout = setTimeout(() => {
         if(loading) {
             setLoading(false);
-            setErrorMsg("Bağlantı çok yavaş. Lütfen sayfayı yenileyin.");
+            if (!user) setErrorMsg("Bağlantı çok yavaş. Lütfen sayfayı yenileyin.");
         }
     }, 15000);
 
@@ -158,24 +155,36 @@ function App() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             
-            // Smart Merge
-            let dbCategories = data.categories || [];
-            const mergedCategories = defaultCategories.map(defCat => {
-                const foundInDb = dbCategories.find(c => c.id === defCat.id);
-                return foundInDb ? { ...defCat, items: foundInDb.items } : defCat;
+            // --- KATEGORİ BİRLEŞTİRME ---
+            const dbCategories = data.categories || [];
+            
+            // 1. Kodda olanları güncelle
+            const mergedDefaults = defaultCategories.map(defCat => {
+               const foundInDb = dbCategories.find(c => c.id === defCat.id);
+               return foundInDb ? { ...defCat, items: foundInDb.items } : defCat;
             });
-            const customCategories = dbCategories.filter(dbCat => !defaultCategories.some(defCat => defCat.id === dbCat.id));
-            setCategories([...mergedCategories, ...customCategories]);
 
+            // 2. Kullanıcının sonradan eklediklerini (Kodda olmayanları) bul ve ekle
+            const customCategories = dbCategories.filter(dbCat => 
+               !defaultCategories.some(defCat => defCat.id === dbCat.id)
+            );
+
+            setCategories([...mergedDefaults, ...customCategories]);
+
+            // --- ŞEHİR BİRLEŞTİRME ---
             const dbCities = data.cities || [];
             const mergedCities = defaultCities.map(defCity => {
                const foundInDb = dbCities.find(c => c.id === defCity.id);
                return foundInDb || defCity;
             });
-            const customCities = dbCities.filter(dbCity => !defaultCities.some(defCity => defCity.id === dbCity.id));
+            const customCities = dbCities.filter(dbCity => 
+               !defaultCities.some(defCity => defCity.id === dbCity.id)
+            );
             setCities([...mergedCities, ...customCities]);
 
+            // --- ETİKET BİRLEŞTİRME ---
             const dbTags = data.tags || [];
+            // Benzersizleri al
             const mergedTags = Array.from(new Set([...defaultTags, ...dbTags]));
             setAvailableTags(mergedTags);
 
@@ -226,7 +235,7 @@ function App() {
       });
     } catch (e) {
       console.error("Kayıt Hatası:", e);
-      setFeedbackMsg("⚠️ Kayıt Başarısız!");
+      setFeedbackMsg("⚠️ Kayıt Başarısız!"); // Tırnak işareti düzeltildi
     }
   };
 
@@ -333,11 +342,11 @@ function App() {
         let targetCatId = 'cat_todo';
         if (importTarget !== 'auto') targetCatId = importTarget;
         else {
-             const priorityOrder = ['cat_devren', 'cat_ticari', 'cat_tarla', 'cat_bahce', 'cat_arsa', 'cat_konut', 'cat_randevu'];
-             for (const catId of priorityOrder) {
-               const cat = tempCategories.find(c => c.id === catId);
-               if (cat && cat.keywords.split(',').some(k=>cleanText.toLowerCase().includes(k.trim()))) { targetCatId = cat.id; break; }
-             }
+              const priorityOrder = ['cat_devren', 'cat_ticari', 'cat_tarla', 'cat_bahce', 'cat_arsa', 'cat_konut', 'cat_randevu'];
+              for (const catId of priorityOrder) {
+                const cat = tempCategories.find(c => c.id === catId);
+                if (cat && cat.keywords.split(',').some(k=>cleanText.toLowerCase().includes(k.trim()))) { targetCatId = cat.id; break; }
+              }
         }
         currentAdNo++;
         const newItem = { id: Date.now() + Math.random(), adNo: currentAdNo, text: cleanText, phone, contactName: '', date: fullDate, price, alarmTime: '', alarmActive: false, tags: detectedTags, cityId: detectedCityId, cityName: detectedCityName, dealType };
@@ -380,16 +389,12 @@ function App() {
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
         const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
         alarmTime = `${year}-${month}-${day}T09:00`; alarmActive = true;
-    } else {
-        const parsedDate = parseDateFromText(textToProcess);
-        if (parsedDate.active) { alarmTime = parsedDate.date; alarmActive = true; }
     }
-
     const newItem = { id: timestamp, adNo: newAdNo, text: text, phone, contactName, date: fullDate, price, alarmTime: alarmTime, alarmActive: alarmActive, tags: detectedTags, cityId: detectedCityId, cityName: detectedCityName, dealType: dealType };
     let targetCategoryId = 'cat_todo';
     const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı'];
     const isAppointment = appointmentTriggers.some(trigger => lowerText.includes(trigger));
-    if (forcedDate || isAppointment || alarmActive) { targetCategoryId = 'cat_randevu'; } 
+    if (forcedDate || isAppointment) { targetCategoryId = 'cat_randevu'; } 
     else if (lowerText.includes('devren')) { targetCategoryId = 'cat_devren'; } 
     else {
         const priorityOrder = ['cat_ticari', 'cat_tarla', 'cat_bahce', 'cat_arsa', 'cat_konut'];
@@ -415,18 +420,17 @@ function App() {
 
   const deleteItem = (catId, itemId) => {
     if(!confirm("Silmek istediğinize emin misiniz?")) return;
-    const newCategories = categories.map(c => {
-       if (c.id === catId) return {...c, items: c.items.filter(i => i.id !== itemId)};
-       return c;
-    });
+    const newCategories = categories.map(c => { if (c.id === catId) return {...c, items: c.items.filter(i => i.id !== itemId)}; return c; });
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
   };
 
   const saveItemChanges = () => {
     if (!editingItem) return;
+    
     let newCategories = [...categories];
     const { originalCatId, targetCatId, item } = editingItem;
+
     if (originalCatId === targetCatId) {
       newCategories = newCategories.map(c => {
         if (c.id === originalCatId) return { ...c, items: c.items.map(i => i.id === item.id ? item : i) };
@@ -436,6 +440,7 @@ function App() {
       newCategories = newCategories.map(c => { if (c.id === originalCatId) return { ...c, items: c.items.filter(i => i.id !== item.id) }; return c; });
       newCategories = newCategories.map(c => { if (c.id === targetCatId) return { ...c, items: [item, ...c.items] }; return c; });
     }
+
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
     setEditingItem(null);
@@ -463,48 +468,6 @@ function App() {
     return result;
   };
 
-  const parseDateFromText = (text) => {
-    const lower = text.toLocaleLowerCase('tr-TR');
-    let targetDate = new Date();
-    let found = false;
-    if (lower.includes('yarın')) { targetDate.setDate(targetDate.getDate() + 1); found = true; } 
-    else if (lower.includes('öbür gün')) { targetDate.setDate(targetDate.getDate() + 2); found = true; }
-    const days = ['pazar', 'pazartesi', 'salı', 'çarşamba', 'perşembe', 'cuma', 'cumartesi'];
-    const todayIndex = targetDate.getDay(); 
-    for (let i = 0; i < days.length; i++) {
-        if (lower.includes(days[i])) {
-            let diff = i - todayIndex;
-            if (diff <= 0) diff += 7; 
-            if (lower.includes('haftaya')) diff += 7;
-            targetDate = new Date(); 
-            targetDate.setDate(targetDate.getDate() + diff);
-            found = true;
-            break; 
-        }
-    }
-    let hour = 9; let minute = 0;
-    if (lower.includes('akşam')) hour = 19;
-    else if (lower.includes('sabah')) hour = 9;
-    else if (lower.includes('öğlen')) hour = 13;
-    else if (lower.includes('ikindi')) hour = 16;
-    const timeMatch = lower.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
-    if (timeMatch) {
-        let h = parseInt(timeMatch[1]);
-        if (h < 24) {
-             if (h < 12 && (lower.includes('akşam') || lower.includes('öğleden sonra'))) h += 12;
-             hour = h;
-             if (timeMatch[3]) minute = parseInt(timeMatch[3]);
-        }
-    }
-    targetDate.setHours(hour, minute, 0, 0);
-    if (found) {
-        const offset = targetDate.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(targetDate - offset)).toISOString().slice(0, 16);
-        return { date: localISOTime, active: true };
-    }
-    return { date: '', active: false };
-  };
-
   const formatCurrency = (amount) => { if (!amount) return ''; return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(amount); };
   const toggleFilter = (tag) => { if (activeFilters.includes(tag)) setActiveFilters(activeFilters.filter(t => t !== tag)); else setActiveFilters([...activeFilters, tag]); };
   const handleContactPick = async () => { if ('contacts' in navigator && 'ContactsManager' in window) { try { const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false }); if (contacts.length) setInputText(`${contacts[0].name[0]} (${contacts[0].tel ? contacts[0].tel[0] : ''}) - `); } catch (ex) { setShowManualContactModal(true); } } else { setShowManualContactModal(true); } };
@@ -525,34 +488,72 @@ function App() {
   };
 
   const downloadAllData = () => {
-    let content = "--- EMLAK ASİSTANI TÜM KAYITLAR RAPORU ---\n\n";
+    let allItems = [];
+    categories.forEach(cat => { if(cat.items.length > 0) allItems = [...allItems, ...cat.items]; });
+    
+    // Tarihe göre değil, İlan Numarasına göre sırala (Büyükten Küçüğe)
+    allItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+
+    let fullContent = `========================================================================\r\n`;
+    fullContent += `   EMLAK ASİSTANI - TÜM VERİLER (YEDEKLER)\r\n`;
+    fullContent += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
+    fullContent += `========================================================================\r\n\r\n`;
+
+    // Kategorilendirilmiş çıktı
     categories.forEach(cat => {
       if(cat.items.length > 0) {
-        content += `\n=== ${cat.title.toUpperCase()} (${cat.items.length}) ===\n`;
-        cat.items.forEach(item => { content += `[#${item.adNo}] ${item.date} | ${item.text}\n`; });
+        fullContent += `\r\n>>> KATEGORİ: ${cat.title.toUpperCase()} (${cat.items.length} Kayıt) <<<\r\n`;
+        // O kategorideki itemleri sırala
+        const sortedItems = [...cat.items].sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+        sortedItems.forEach(item => {
+           fullContent += `[#${item.adNo || '---'}] ${item.date} | ${item.cityName || 'Şehir Yok'} | ${item.dealType==='rent'?'KİRALIK':'SATILIK'}\r\n`;
+           fullContent += `Kişi: ${item.contactName || '-'} (${item.phone || '-'})\r\n`;
+           if(item.price) fullContent += `Fiyat: ${formatCurrency(item.price)}\r\n`;
+           fullContent += `Not: ${item.text}\r\n`;
+           fullContent += `------------------------------------------------------\r\n`;
+        });
       }
     });
-    const element = document.createElement("a");
-    const file = new Blob(["\uFEFF" + content], {type: 'text/plain;charset=utf-8'});
-    element.href = URL.createObjectURL(file);
-    element.download = `Tum_Kayitlar.txt`;
-    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+
+    if (allItems.length === 0) return alert("İndirilecek kayıt yok.");
+    downloadFile(fullContent, `Tum_Kayitlar_${new Date().toLocaleDateString().replace(/\./g, '_')}.txt`);
     setShowMenu(false);
+  };
+
+  const downloadFile = (content, filename) => {
+    const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8' });
+    const element = document.createElement("a");
+    element.href = URL.createObjectURL(blob);
+    element.download = filename;
+    document.body.appendChild(element); element.click(); document.body.removeChild(element);
   };
 
   const downloadFilteredData = () => {
     const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
     const filteredItems = getProcessedItems(activeCategory.items);
     if (filteredItems.length === 0) { alert("Bu görünümde veri yok."); return; }
-    let content = `--- ${activeCategory.title.toUpperCase()} RAPORU ---\n\n`;
-    filteredItems.forEach((item, index) => {
-      content += `${index + 1}) ${item.text}\n------------------\n`;
+    
+    // Sıralama (İlan No)
+    filteredItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+
+    let content = `========================================================================\r\n`;
+    content += `   ${activeCategory.title.toUpperCase()} RAPORU\r\n`;
+    content += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
+    content += `========================================================================\r\n\r\n`;
+    
+    filteredItems.forEach((item) => {
+        content += `------------------------------------------------------------------------\r\n`;
+        content += `[#${item.adNo || '---'}]  ${item.cityName ? item.cityName.toUpperCase() : 'GENEL'}  |  ${item.dealType === 'rent' ? 'KİRALIK' : 'SATILIK'}  |  ${item.date}\r\n`;
+        content += `------------------------------------------------------------------------\r\n`;
+        if(item.contactName || item.phone) {
+          content += `MÜŞTERİ : ${item.contactName || 'İsimsiz'}\r\n`;
+          content += `TELEFON : ${item.phone || '-'}\r\n`;
+        }
+        if(item.price) content += `FİYAT   : ${formatCurrency(item.price)}\r\n`;
+        content += `\r\nDETAYLAR:\r\n${item.text}\r\n\r\n`;
     });
-    const element = document.createElement("a");
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `Liste.txt`;
-    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+    
+    downloadFile(content, `${activeCategory.title}_Raporu.txt`);
     setShowMenu(false);
   };
 
@@ -571,9 +572,40 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
-  if (errorMsg) return <div className="h-screen flex items-center justify-center p-6 bg-slate-900 text-white text-center"><AlertTriangle size={64} className="text-red-500 mb-4"/><p>{errorMsg}</p></div>;
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 size={32} className="animate-spin text-blue-600"/></div>;
-  if (!user) return <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white"><img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/><h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1><p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V34</p><button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap</button></div>;
+  // --- EKRAN TASARIMI ---
+  
+  if (errorMsg) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
+        <AlertTriangle size={64} className="text-red-500 mb-4"/>
+        <h1 className="text-2xl font-bold mb-2">Bir Sorun Oluştu</h1>
+        <p className="text-slate-300 text-sm mb-6">{errorMsg}</p>
+        <button onClick={()=>window.location.reload()} className="bg-white text-slate-900 px-6 py-2 rounded-lg font-bold flex items-center gap-2"><RefreshCcw size={16}/> Sayfayı Yenile</button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin text-blue-600 mb-4 text-4xl">●</div>
+        <p className="text-slate-500 text-sm animate-pulse">Veriler Buluttan Alınıyor...</p>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+        <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
+        <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
+        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V45 (Fixed)</p>
+        <button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap
+        </button>
+      </div>
+    );
+  }
 
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
@@ -590,7 +622,7 @@ function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V40</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V45</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -705,7 +737,6 @@ function App() {
 
       {/* İÇERİK ALANI */}
       <div className="flex-1 overflow-y-auto p-4 pb-36 bg-slate-50">
-        
         {/* TAKVİM GÖRÜNÜMÜ */}
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -720,11 +751,12 @@ function App() {
             <div className="grid grid-cols-7 gap-1">
               {getDaysInMonth(currentCalendarDate).map((date, i) => {
                 if (!date) return <div key={i} className="aspect-square bg-transparent"></div>;
-                const dayEvents = categories.find(c => c.id === 'cat_randevu').items.filter(item => {
+                const catRandevu = categories.find(c => c.id === 'cat_randevu');
+                const dayEvents = catRandevu ? catRandevu.items.filter(item => {
                   if(!item.alarmTime) return false;
                   const itemDate = new Date(item.alarmTime);
                   return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth() && itemDate.getFullYear() === date.getFullYear();
-                });
+                }) : [];
 
                 return (
                   <div key={i} className={`aspect-square rounded-lg border text-xs flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length > 0 ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}
@@ -745,17 +777,17 @@ function App() {
               {displayItems.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
                   <div className="flex justify-between items-start mb-2">
-                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
-                        {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
-                     </div>
-                     {item.price > 0 && (
-                       <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
-                         <Banknote size={12}/>{formatCurrency(item.price)}
-                       </div>
-                     )}
+                      <div className="flex items-center gap-2">
+                         <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
+                         {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
+                      </div>
+                      {item.price > 0 && (
+                        <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
+                          <Banknote size={12}/>{formatCurrency(item.price)}
+                        </div>
+                      )}
                   </div>
-                  
+                   
                   {(item.phone || item.contactName) && (
                     <div className="flex items-center gap-2 mb-2 text-xs text-slate-700">
                       <User size={14} className="text-slate-400"/>
@@ -766,15 +798,13 @@ function App() {
                     </div>
                   )}
 
-                  {/* Kiralık/Satılık Etiketi */}
                   <div className="flex gap-2 mb-2">
                     {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
                     {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
                   </div>
 
                   <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
-                  
-                  {/* Özellik Etiketleri */}
+                   
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {item.tags.map(tag => (
