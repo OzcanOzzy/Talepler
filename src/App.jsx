@@ -10,7 +10,7 @@ import {
   ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
 } from 'lucide-react';
 
-// --- HATA YÖNETİMİ ---
+// --- HATA KALKANI ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -41,7 +41,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// --- FIREBASE YAPILANDIRMASI ---
+// --- FIREBASE AYARLARI ---
 const firebaseConfig = {
   apiKey: "AIzaSyD6ZVlcJYZPfJ5RQEWZGnrh4sBmwHS9_2U",
   authDomain: "randevular-talepler.firebaseapp.com",
@@ -65,7 +65,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // --- VARSAYILAN KATEGORİLER ---
+  // --- VARSAYILAN VERİLER ---
   const defaultCategories = [
     { id: 'cat_randevu', title: 'Randevular', keywords: 'randevu,görüşme,buluşma,toplantı,yarın,saat,gösterilecek,gösterim,sunum,bakılacak', items: [], icon: 'calendar' },
     { id: 'cat_todo', title: 'Yapılacaklar', keywords: 'yapılacak,hatırlat,alınacak,git,gel,ara,sor,gönder,hazırla,not', items: [], icon: 'check' },
@@ -367,10 +367,12 @@ function App() {
     let alarmTime = '';
     let alarmActive = false;
     
+    // Tarih Algılama Önceliği: 1. Manuel Seçim (Takvimden) 2. Metin İçinden (NLP)
     if (forcedDate) {
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
-        const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
-        alarmTime = `${year}-${month}-${day}T09:00`; alarmActive = true;
+        const offset = d.getTimezoneOffset() * 60000;
+        alarmTime = (new Date(d.getTime() - offset)).toISOString().slice(0, 16);
+        alarmActive = true;
     } else {
         const parsedDate = parseDateFromText(textToProcess);
         if (parsedDate.active) { alarmTime = parsedDate.date; alarmActive = true; }
@@ -434,7 +436,7 @@ function App() {
     setEditingItem(null);
   };
 
-  const handleCalendarAdd = () => { if(!calendarInputText) return; processCommand(calendarInputText, null, calendarSelectedDate); setCalendarSelectedDate(null); setCalendarInputText(''); };
+  const handleCalendarAdd = () => { if(!calendarInputText) return; processCommand(calendarInputText, null, calendarSelectedDate); setCalendarInputText(''); };
   
   const getProcessedItems = (items) => {
     if (!items) return []; 
@@ -529,7 +531,7 @@ function App() {
 
   if (errorMsg) return <div className="h-screen flex items-center justify-center p-6 bg-slate-900 text-white text-center"><AlertTriangle size={64} className="text-red-500 mb-4"/><p>{errorMsg}</p></div>;
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 size={32} className="animate-spin text-blue-600"/></div>;
-  if (!user) return <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white"><img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/><h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1><p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V48 (FINAL)</p><button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap</button></div>;
+  if (!user) return <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white"><img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/><h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1><p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V49 (FINAL)</p><button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap</button></div>;
 
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
@@ -546,7 +548,7 @@ function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V48</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V49</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -568,14 +570,8 @@ function App() {
             <p className="text-xs font-bold text-slate-800">{user.displayName}</p>
             <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
           </div>
-          <button onClick={testAlarm} className="w-full text-left px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-lg flex gap-2 font-bold mb-1 border border-green-200"><Volume2 size={16}/> Bildirim Testi</button>
-          <div className="h-px bg-slate-100 my-1"></div>
           <button onClick={() => {setShowImportModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 flex gap-2"><Upload size={16}/> Veri Yükle</button>
           <button onClick={downloadAllData} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex gap-2"><Download size={16}/> Tüm Verileri İndir</button>
-          <button onClick={downloadFilteredData} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex gap-2"><FileText size={16}/> Listeyi İndir</button>
-          <div className="h-px bg-slate-100 my-1"></div>
-          <button onClick={() => {setShowCityManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex gap-2"><MapPin size={16}/> Şehirler</button>
-          <button onClick={() => {setShowTagManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex gap-2"><Tag size={16}/> Etiketler</button>
           <div className="h-px bg-slate-100 my-1"></div>
           <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex gap-2 font-bold"><LogOut size={16}/> Çıkış</button>
         </div>
@@ -651,70 +647,85 @@ function App() {
             </div>
             
             {/* SAĞ: Takvim */}
-            <div className="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-hidden text-[0.7rem]">
-                <div className="flex justify-between items-center mb-2 flex-shrink-0">
-                    {!calendarDetailDate && <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16}/></button>}
-                    <h3 className="font-bold text-sm text-slate-800">
-                      {calendarDetailDate ? calendarDetailDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }) : currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
-                    </h3>
-                    {calendarDetailDate ? (
-                      <button onClick={() => setCalendarDetailDate(null)} className="p-1 bg-red-50 text-red-600 rounded-full"><X size={16}/></button>
-                    ) : (
-                      <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16}/></button>
-                    )}
-                </div>
-
-                {!calendarDetailDate ? (
-                    <div className="flex flex-col flex-1 h-full overflow-hidden">
-                      <div className="grid grid-cols-7 gap-0.5 text-center mb-1 flex-shrink-0">
-                        {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="font-bold text-slate-400 text-[0.6rem]">{d}</div>)}
-                      </div>
-                      <div className="grid grid-cols-7 gap-0.5 auto-rows-fr flex-1 overflow-y-auto">
-                        {getDaysInMonth(currentCalendarDate).map((date, i) => {
-                          if (!date) return <div key={i} className="bg-transparent"></div>;
-                          const catRandevu = categories.find(c => c.id === 'cat_randevu');
-                          const dayEvents = catRandevu ? catRandevu.items.filter(item => {
-                            if(!item.alarmTime) return false;
-                            const itemDate = new Date(item.alarmTime);
-                            return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth();
-                          }) : [];
-                          return (
-                            <div key={i} onClick={() => setCalendarDetailDate(date)} className={`h-8 rounded border flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}>
-                              {date.getDate()}
-                              {dayEvents.length > 0 && <div className="w-1 h-1 bg-indigo-500 rounded-full absolute bottom-1"></div>}
+            <div className="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+                {calendarSelectedDate ? (
+                  // GÜN DETAY GÖRÜNÜMÜ
+                  <div className="flex flex-col h-full p-4">
+                     <div className="flex justify-between items-center mb-4 border-b pb-2">
+                        <button onClick={() => setCalendarSelectedDate(null)} className="flex items-center gap-1 text-slate-500 hover:text-slate-800 text-xs font-bold">
+                          <ChevronLeft size={16}/> Geri
+                        </button>
+                        <h3 className="font-bold text-slate-800">{calendarSelectedDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}</h3>
+                        <div className="w-8"></div> {/* Spacer */}
+                     </div>
+                     
+                     <div className="flex-1 overflow-y-auto space-y-2">
+                        {/* O GÜNÜN RANDEVULARI */}
+                        {categories.find(c => c.id === 'cat_randevu').items
+                          .filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString())
+                          .sort((a,b) => new Date(a.alarmTime) - new Date(b.alarmTime))
+                          .map(item => (
+                            <div key={item.id} className="flex gap-2 items-start p-2 bg-indigo-50 rounded border border-indigo-100">
+                               <span className="font-bold text-indigo-700 text-xs mt-0.5">{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
+                               <div className="flex-1">
+                                  <p className="text-xs text-slate-800">{item.text}</p>
+                                  {item.contactName && <p className="text-[10px] text-slate-500">{item.contactName}</p>}
+                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          ))
+                        }
+                        {categories.find(c => c.id === 'cat_randevu').items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString()).length === 0 && (
+                           <div className="text-center text-slate-400 text-xs py-10">Bugün için plan yok.</div>
+                        )}
+                     </div>
+
+                     {/* HIZLI EKLEME ALANI */}
+                     <div className="mt-2 pt-2 border-t flex gap-2">
+                        <input 
+                          value={calendarInputText} 
+                          onChange={(e) => setCalendarInputText(e.target.value)} 
+                          placeholder="Saat 14:00 Toplantı..." 
+                          className="flex-1 bg-slate-50 border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                          onKeyDown={(e) => {
+                            if(e.key === 'Enter') {
+                              handleCalendarAdd();
+                            }
+                          }}
+                        />
+                        <button onClick={handleCalendarAdd} className="bg-indigo-600 text-white p-2 rounded-lg"><Plus size={18}/></button>
+                     </div>
+                  </div>
                 ) : (
-                    <div className="flex-1 overflow-y-auto">
-                        <div className="space-y-2">
-                          {(categories.find(c => c.id === 'cat_randevu') || {items:[]}).items
-                            .filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarDetailDate.toDateString())
-                            .sort((a, b) => new Date(a.alarmTime) - new Date(b.alarmTime))
-                            .map(item => (
-                              <div key={item.id} className="bg-indigo-50 p-2 rounded border-l-2 border-indigo-500">
-                                <div className="flex justify-between font-bold text-[0.65rem] text-indigo-800 mb-0.5">
-                                  <span>{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
-                                  <span>#{item.adNo}</span>
-                                </div>
-                                <p className="text-xs text-slate-700">{item.text}</p>
-                                <div className="mt-1 flex justify-end gap-1">
-                                   <button onClick={() => addToGoogleCalendar(item)} className="text-blue-600"><Calendar size={12}/></button>
-                                   <button onClick={() => setEditingItem({originalCatId: 'cat_randevu', targetCatId: 'cat_randevu', item: {...item}})} className="text-slate-500"><Pencil size={12}/></button>
-                                </div>
-                              </div>
-                            ))
-                          }
-                          {(categories.find(c => c.id === 'cat_randevu') || {items:[]}).items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarDetailDate.toDateString()).length === 0 && (
-                            <p className="text-center text-slate-400 italic py-4 text-xs">Bu tarihte randevu yok.</p>
-                          )}
-                          <button onClick={() => setCalendarSelectedDate(calendarDetailDate)} className="w-full mt-2 py-2 border-2 border-dashed border-slate-300 text-slate-400 rounded-lg text-xs font-bold hover:bg-slate-50 hover:text-slate-600 flex items-center justify-center gap-1">
-                            <Plus size={14}/> Yeni Randevu Ekle
-                          </button>
-                        </div>
-                    </div>
+                  // TAKVİM GRID GÖRÜNÜMÜ
+                  <div className="flex flex-col h-full p-2">
+                     <div className="flex justify-between items-center mb-2 flex-shrink-0">
+                         <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16}/></button>
+                         <h3 className="font-bold text-sm text-slate-800">
+                           {currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
+                         </h3>
+                         <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16}/></button>
+                     </div>
+                     <div className="grid grid-cols-7 gap-0.5 text-center mb-1 flex-shrink-0">
+                       {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="font-bold text-slate-400 text-[0.6rem]">{d}</div>)}
+                     </div>
+                     <div className="grid grid-cols-7 gap-0.5 auto-rows-fr flex-1 overflow-y-auto">
+                       {getDaysInMonth(currentCalendarDate).map((date, i) => {
+                         if (!date) return <div key={i} className="bg-transparent"></div>;
+                         const catRandevu = categories.find(c => c.id === 'cat_randevu');
+                         const dayEvents = catRandevu ? catRandevu.items.filter(item => {
+                           if(!item.alarmTime) return false;
+                           const itemDate = new Date(item.alarmTime);
+                           return itemDate.getDate() === date.getDate() && itemDate.getMonth() === date.getMonth();
+                         }) : [];
+                         return (
+                           <div key={i} onClick={() => setCalendarSelectedDate(date)} className={`h-8 rounded border flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}>
+                             {date.getDate()}
+                             {dayEvents.length > 0 && <div className="w-1 h-1 bg-indigo-500 rounded-full absolute bottom-1"></div>}
+                           </div>
+                         );
+                       })}
+                     </div>
+                  </div>
                 )}
             </div>
           </div>
@@ -806,22 +817,6 @@ function App() {
               {inputText && <button onClick={() => processCommand(inputText)} className="absolute right-2 top-2 text-blue-600 bg-white p-1.5 rounded-lg shadow-sm"><Send size={16}/></button>}
             </div>
             <button onClick={startListening} className={`p-4 rounded-xl mb-1 flex-shrink-0 transition-all shadow-lg ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-white active:scale-95'}`}><Mic size={24}/></button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: TAKVİM DETAY EKLEME */}
-      {calendarSelectedDate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
-            <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
-            <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
-            <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin</p>
-            <textarea value={calendarInputText} onChange={(e) => setCalendarInputText(e.target.value)} placeholder="Randevu notu..." className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"/>
-            <div className="flex gap-2">
-              <button onClick={startListeningCalendar} className={`p-3 rounded-xl flex-shrink-0 transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}><Mic size={20}/></button>
-              <button onClick={handleCalendarAdd} className="flex-1 bg-indigo-600 text-white font-bold rounded-xl text-sm">EKLE</button>
-            </div>
           </div>
         </div>
       )}
@@ -994,8 +989,6 @@ function App() {
           </div>
         </div>
       )}
-
-      {/* MODAL: KATEGORİ EKLEME */}
        {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
