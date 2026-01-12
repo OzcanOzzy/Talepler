@@ -9,7 +9,7 @@ import {
   Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-// --- BURAYI KENDİ FIREBASE BİLGİLERİNİZLE DOLDURUN ---
+// --- SİZİN VERDİĞİNİZ ORİJİNAL FIREBASE BİLGİLERİ ---
 const firebaseConfig = {
   apiKey: "AIzaSyD6ZVlcJYZPfJ5RQEWZGnrh4sBmwHS9_2U",
   authDomain: "randevular-talepler.firebaseapp.com",
@@ -22,11 +22,9 @@ const firebaseConfig = {
 // --- Firebase Başlatma ---
 let app, db, auth;
 try {
-  if (firebaseConfig.apiKey !== "BURAYA_API_KEY_YAZILACAK") {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-  }
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
 } catch (e) {
   console.error("Firebase Başlatılamadı:", e);
 }
@@ -35,8 +33,7 @@ export default function App() {
   // --- Kullanıcı ve Sistem Durumu ---
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [configMissing, setConfigMissing] = useState(false);
-
+  
   // --- Başlangıç Verileri ---
   const defaultCategories = [
     { id: 'cat_randevu', title: 'Randevular', keywords: 'randevu,görüşme,buluşma,toplantı,yarın,saat,gösterilecek,gösterim,sunum,bakılacak', items: [], icon: 'calendar' },
@@ -110,8 +107,6 @@ export default function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    if (!auth) { setConfigMissing(true); setLoading(false); return; }
-
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -200,7 +195,6 @@ export default function App() {
     } else triggerNotification("Test Başarılı!");
   };
 
-  // --- GOOGLE TAKVİM ---
   const addToGoogleCalendar = (item) => {
     if (!item.alarmTime) return alert("Lütfen önce bir alarm tarihi belirleyin.");
     const startDate = new Date(item.alarmTime);
@@ -222,7 +216,6 @@ export default function App() {
     return days;
   };
 
-  // --- BİLGİ AYIKLAMA ---
   const extractInfo = (text) => {
     const phoneRegex = /(0?5\d{2})[\s-]?(\d{3})[\s-]?(\d{2})[\s-]?(\d{2})|(\d{10,11})/;
     const phoneMatch = text.match(phoneRegex);
@@ -242,11 +235,12 @@ export default function App() {
     return { phone, text, price };
   };
 
-  // --- ANA MANTIK (DÜZELTİLDİ: Randevu Önceliği) ---
+  // --- ANA MANTIK ---
   const processCommand = (rawText, specificContact = null, forcedDate = null) => {
     if (!rawText.trim() && !specificContact) return;
     
     let textToProcess = rawText.replace(/(\d)\s*\+\s*(\d)/g, '$1+$2'); 
+    
     const now = new Date();
     const fullDate = `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}`;
     const timestamp = Date.now();
@@ -275,12 +269,8 @@ export default function App() {
     
     if (forcedDate) {
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
-        // Tarih formatı düzeltmesi (ISO için)
-        const year = d.getFullYear(); 
-        const month = String(d.getMonth() + 1).padStart(2, '0'); 
-        const day = String(d.getDate()).padStart(2, '0');
-        alarmTime = `${year}-${month}-${day}T09:00`; 
-        alarmActive = true;
+        const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
+        alarmTime = `${year}-${month}-${day}T09:00`; alarmActive = true;
     }
 
     const newItem = { 
@@ -292,7 +282,6 @@ export default function App() {
     let targetCategoryId = 'cat_todo';
     
     // --- ÖNCELİK KONTROLÜ (DÜZELTİLDİ) ---
-    // Eğer takvimden geldiyse veya randevu kelimeleri geçiyorsa KESİN Randevudur.
     const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı'];
     const isAppointment = appointmentTriggers.some(trigger => lowerText.includes(trigger));
 
@@ -301,7 +290,6 @@ export default function App() {
     } else if (lowerText.includes('devren')) {
         targetCategoryId = 'cat_devren';
     } else {
-        // Diğer kategoriler için kontrol
         const priorityOrder = ['cat_ticari', 'cat_tarla', 'cat_bahce', 'cat_arsa', 'cat_konut'];
         for (const catId of priorityOrder) {
           const cat = categories.find(c => c.id === catId);
@@ -384,7 +372,6 @@ export default function App() {
 
   const formatCurrency = (amount) => { if (!amount) return ''; return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(amount); };
   const toggleFilter = (tag) => { if (activeFilters.includes(tag)) setActiveFilters(activeFilters.filter(t => t !== tag)); else setActiveFilters([...activeFilters, tag]); };
-  
   const handleContactPick = async () => { if ('contacts' in navigator && 'ContactsManager' in window) { try { const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false }); if (contacts.length) setInputText(`${contacts[0].name[0]} (${contacts[0].tel ? contacts[0].tel[0] : ''}) - `); } catch (ex) { setShowManualContactModal(true); } } else { setShowManualContactModal(true); } };
   
   const startListening = () => {
@@ -403,8 +390,6 @@ export default function App() {
   };
 
   const handleFileUpload = async (e) => {
-    // ... (Önceki Import kodu aynen geçerli, yer tasarrufu için kısaltıldı) ...
-    // Import logic is preserved
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -418,12 +403,10 @@ export default function App() {
         if (!line.trim()) return;
         let cleanText = line.replace(/^[\d-]+\.?\s*/, '').trim();
         if(!cleanText) return;
-        // ... process ...
         let { phone, text, price } = extractInfo(cleanText);
         const now = new Date();
         const fullDate = `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}`;
         const detectedTags = availableTags.filter(tag => cleanText.toLocaleLowerCase('tr-TR').includes(tag.toLocaleLowerCase('tr-TR')));
-        // ... (City & Deal Logic same as processCommand) ...
         let detectedCityId = null; let detectedCityName = '';
         for (const city of cities) { if (city.keywords.split(',').map(k=>k.trim()).some(k=>cleanText.toLowerCase().includes(k))) { detectedCityId = city.id; detectedCityName = city.title; break; } }
         let dealType = 'sale'; if (cleanText.toLowerCase().includes('kira')) dealType = 'rent';
@@ -451,8 +434,37 @@ export default function App() {
     reader.readAsText(file, "UTF-8");
   };
 
-  const downloadAllData = () => { /* ... (Önceki kodla aynı) ... */ };
-  const downloadFilteredData = () => { /* ... (Önceki kodla aynı) ... */ };
+  const downloadAllData = () => {
+    let content = "--- EMLAK ASİSTANI TÜM KAYITLAR RAPORU ---\n\n";
+    categories.forEach(cat => {
+      if(cat.items.length > 0) {
+        content += `\n=== ${cat.title.toUpperCase()} (${cat.items.length}) ===\n`;
+        cat.items.forEach(item => { content += `[#${item.adNo}] ${item.date} | ${item.text}\n`; });
+      }
+    });
+    const element = document.createElement("a");
+    const file = new Blob(["\uFEFF" + content], {type: 'text/plain;charset=utf-8'});
+    element.href = URL.createObjectURL(file);
+    element.download = `Tum_Kayitlar.txt`;
+    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+    setShowMenu(false);
+  };
+
+  const downloadFilteredData = () => {
+    const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
+    const filteredItems = getProcessedItems(activeCategory.items);
+    if (filteredItems.length === 0) { alert("Bu görünümde veri yok."); return; }
+    let content = `--- ${activeCategory.title.toUpperCase()} RAPORU ---\n\n`;
+    filteredItems.forEach((item, index) => {
+      content += `${index + 1}) ${item.text}\n------------------\n`;
+    });
+    const element = document.createElement("a");
+    const file = new Blob([content], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `Liste.txt`;
+    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+    setShowMenu(false);
+  };
 
   const getIcon = (icon) => {
     if(icon==='home') return <Home size={16}/>;
@@ -469,8 +481,6 @@ export default function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
-  // --- EKRAN TASARIMI ---
-  if (configMissing) return <div className="h-screen flex items-center justify-center p-6 bg-slate-900 text-white">Lütfen App.jsx içindeki firebaseConfig alanını doldurun.</div>;
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 size={32} className="animate-spin text-blue-600"/></div>;
   
   if (!user) {
@@ -490,11 +500,11 @@ export default function App() {
       {/* ÜST BAR */}
       <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14">
         <div className="flex items-center gap-2">
-          <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
+          <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
           <div className="flex flex-col justify-center h-full pt-1">
             <h1 className="font-bold text-xs text-orange-400 leading-tight">Talep - Randevu Asistanı</h1>
             <div className="flex items-center gap-2 mt-0">
-               <img src="https://i.hizliresim.com/fa4ibjl.png" className="h-9 w-auto object-contain"/>
+               <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V26</p>
             </div>
           </div>
@@ -521,6 +531,7 @@ export default function App() {
           </button>
           <div className="h-px bg-slate-100 my-1"></div>
           <button onClick={downloadAllData} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 rounded-lg flex gap-2"><Download size={16}/> Tüm Verileri İndir</button>
+          <button onClick={downloadFilteredData} className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg flex gap-2 font-medium"><FileText size={16}/> Şu Anki Listeyi İndir</button>
           <div className="h-px bg-slate-100 my-1"></div>
           <button onClick={() => {setShowCityManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><MapPin size={16}/> Şehirleri Düzenle</button>
           <button onClick={() => {setEditingCategoryData({...activeCategory}); setShowEditCategoryModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><Edit3 size={16}/> Bölümü Düzenle</button>
@@ -542,7 +553,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* TAKVİM GEÇİŞ BUTONU (RANDEVULARDA) */}
+      {/* TAKVİM GEÇİŞ BUTONU */}
       {activeTabId === 'cat_randevu' && (
         <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200">
           <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
@@ -579,7 +590,20 @@ export default function App() {
 
           {showFilters && (
             <div className="bg-slate-100 border-b border-slate-200 p-3 z-10">
-              {/* Filtre Detayları... */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
+                <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
+                  <option value="date_desc">En Yeni</option>
+                  <option value="date_asc">En Eski</option>
+                  <option value="price_asc">Fiyat (Artan)</option>
+                  <option value="price_desc">Fiyat (Azalan)</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="text-slate-500 text-xs font-bold flex gap-1"><Banknote size={14}/> Fiyat:</div>
+                <input type="number" placeholder="Min" value={priceFilter.min} onChange={(e)=>setPriceFilter({...priceFilter, min: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+                <input type="number" placeholder="Max" value={priceFilter.max} onChange={(e)=>setPriceFilter({...priceFilter, max: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+              </div>
               <div className="flex gap-2 w-full overflow-x-auto pb-1">
                 {availableTags.map(tag => (
                   <button key={tag} onClick={() => toggleFilter(tag)} className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${activeFilters.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
@@ -758,6 +782,32 @@ export default function App() {
         </div>
       )}
 
+      {/* Şehir Yönetimi */}
+      {showCityManagerModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
+            <h3 className="font-bold mb-4 flex items-center gap-2"><MapPin size={18} className="text-orange-500"/> Şehir Yönetimi</h3>
+            <div className="mb-4 space-y-2">
+              <input value={newCityTitle} onChange={(e)=>setNewCityTitle(e.target.value)} placeholder="Şehir Adı" className="w-full bg-slate-50 border rounded-lg p-2 text-sm"/>
+              <textarea value={newCityKeywords} onChange={(e)=>setNewCityKeywords(e.target.value)} placeholder="Mahalleler / Anahtar Kelimeler (Virgülle)" className="w-full bg-slate-50 border rounded-lg p-2 text-sm h-16"/>
+              <button onClick={addNewCity} className="w-full bg-slate-800 text-white py-2 rounded-lg text-sm font-bold">EKLE</button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 border-t pt-2">
+              {cities.map(city => (
+                <div key={city.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-bold text-sm">{city.title}</span>
+                    <button onClick={()=>removeCity(city.id)} className="text-red-400"><Trash2 size={14}/></button>
+                  </div>
+                  <p className="text-[10px] text-slate-500">{city.keywords}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowCityManagerModal(false)} className="mt-4 bg-slate-200 text-slate-700 py-2 rounded-lg text-sm">Kapat</button>
+          </div>
+        </div>
+      )}
+
       {/* Edit Item Modal */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -765,8 +815,40 @@ export default function App() {
              <h3 className="font-bold mb-4 text-slate-800">Kaydı Düzenle</h3>
              <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
              <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
+             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
+               <span className="text-slate-400 text-xs font-bold">Fiyat:</span>
+               <input type="number" value={editingItem.item.price || ''} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, price: e.target.value } })} className="bg-transparent w-full text-sm outline-none" placeholder="0"/>
+             </div>
+             
+             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
+               <span className="text-slate-400 text-xs font-bold">Şehir:</span>
+               <select 
+                 value={editingItem.item.cityId || ''} 
+                 onChange={(e) => {
+                    const selectedCity = cities.find(c => c.id === e.target.value);
+                    setEditingItem({ ...editingItem, item: { ...editingItem.item, cityId: e.target.value, cityName: selectedCity ? selectedCity.title : '' } })
+                 }}
+                 className="bg-transparent w-full text-sm outline-none"
+               >
+                 <option value="">Seçilmedi</option>
+                 {cities.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+               </select>
+             </div>
+
+             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
+               <span className="text-slate-400 text-xs font-bold">Tip:</span>
+               <select 
+                 value={editingItem.item.dealType || 'sale'} 
+                 onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, dealType: e.target.value } })}
+                 className="bg-transparent w-full text-sm outline-none"
+               >
+                 <option value="sale">Satılık</option>
+                 <option value="rent">Kiralık</option>
+               </select>
+             </div>
+
              <textarea value={editingItem.item.text} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, text: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm h-20"/>
-             {/* ALARM BÖLÜMÜ */}
+             
              <div className="bg-yellow-50 p-3 rounded-xl border-2 border-yellow-200 mb-4 shadow-sm">
                <div className="flex justify-between items-center mb-2">
                  <label className="text-sm font-bold text-yellow-800 flex items-center gap-1"><Clock size={16}/> Alarm Kur</label>
@@ -777,10 +859,82 @@ export default function App() {
                </div>
                <input type="datetime-local" value={editingItem.item.alarmTime} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, alarmTime: e.target.value, alarmActive: true } })} className="w-full bg-white border border-yellow-300 rounded p-2 text-sm font-medium"/>
              </div>
+
              <div className="flex gap-2">
                <button onClick={() => setEditingItem(null)} className="flex-1 bg-slate-100 text-slate-500 py-3 rounded-xl text-sm font-bold">İptal</button>
                <button onClick={saveItemChanges} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-bold">Kaydet</button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diğer Modallar */}
+      {showTagManagerModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
+            <h3 className="font-bold mb-4 flex items-center gap-2"><Tag size={18}/> Etiketleri Düzenle</h3>
+            <div className="flex gap-2 mb-4">
+              <input value={newTagName} onChange={(e)=>setNewTagName(e.target.value)} placeholder="Yeni etiket" className="flex-1 bg-slate-50 border rounded-lg p-2 text-sm"/>
+              <button onClick={()=>{if(newTagName && !availableTags.includes(newTagName)){setAvailableTags([...availableTags,newTagName]);setNewTagName('');}}} className="bg-blue-600 text-white px-3 rounded-lg"><Plus size={20}/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 border-t pt-2">
+              {availableTags.map(tag => (
+                <div key={tag} className="flex justify-between items-center p-2 bg-slate-50 rounded text-sm">
+                  <span>{tag}</span>
+                  <button onClick={()=>setAvailableTags(availableTags.filter(t=>t!==tag))} className="text-red-400"><Trash2 size={14}/></button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowTagManagerModal(false)} className="mt-4 bg-slate-800 text-white py-2 rounded-lg text-sm">Tamam</button>
+          </div>
+        </div>
+      )}
+      
+       {showEditCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
+            <h3 className="font-bold mb-4"><Edit3 size={18}/> Düzenle</h3>
+            <input value={editingCategoryData.title} onChange={(e) => setEditingCategoryData({...editingCategoryData, title: e.target.value})} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm"/>
+            <textarea value={editingCategoryData.keywords} onChange={(e) => setEditingCategoryData({...editingCategoryData, keywords: e.target.value})} className="w-full bg-slate-50 border rounded-lg p-2 mb-4 text-sm h-20"/>
+            <div className="flex gap-2">
+               <button onClick={() => {if(categories.length<=1)return alert("Silinemez"); setCategories(categories.filter(c=>c.id!==editingCategoryData.id)); setShowEditCategoryModal(false);}} className="flex-1 bg-red-50 text-red-500 py-2 rounded-lg text-sm font-bold">SİL</button>
+               <button onClick={() => {setCategories(categories.map(c=>c.id===editingCategoryData.id?editingCategoryData:c)); setShowEditCategoryModal(false);}} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold">KAYDET</button>
+            </div>
+            <button onClick={() => setShowEditCategoryModal(false)} className="w-full mt-2 text-slate-400 text-xs py-2">İptal</button>
+          </div>
+        </div>
+      )}
+       {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
+            <h3 className="font-bold mb-4 flex items-center gap-2"><Plus size={18}/> Yeni Bölüm</h3>
+            <input placeholder="Bölüm Adı" value={newCatTitle} onChange={(e) => setNewCatTitle(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm"/>
+            <textarea placeholder="Anahtar kelimeler" value={newCatKeywords} onChange={(e) => setNewCatKeywords(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-2 mb-4 text-sm h-20"/>
+            <button onClick={() => { if(!newCatTitle) return; setCategories([...categories, {id: `cat_${Date.now()}`, title: newCatTitle, keywords: newCatKeywords, items: [], icon: 'briefcase'}]); setShowAddModal(false); setNewCatTitle(''); setNewCatKeywords(''); }} className="w-full bg-slate-800 text-white py-2 rounded-lg text-sm font-bold">OLUŞTUR</button>
+            <button onClick={() => setShowAddModal(false)} className="w-full mt-2 text-slate-400 text-xs py-2">İptal</button>
+          </div>
+        </div>
+      )}
+
+      {showInstallModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm relative my-8">
+            <button onClick={() => setShowInstallModal(false)} className="absolute top-4 right-4 text-slate-400"><X/></button>
+            <h3 className="text-lg font-bold text-center mb-6">Kurulum</h3>
+            <p className="text-sm text-center text-slate-500 mb-4">1. Sağ üst menüden "Ana Ekrana Ekle" deyin.<br/>2. Button Mapper ile ses tuşuna atayın.</p>
+            <button onClick={() => setShowInstallModal(false)} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Tamam</button>
+          </div>
+        </div>
+      )}
+      
+      {showManualContactModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
+            <h3 className="font-bold mb-4">Manuel Kişi Ekle</h3>
+            <input placeholder="Adı Soyadı" value={manualContactName} onChange={(e) => setManualContactName(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-3 mb-3 text-sm"/>
+            <input placeholder="Telefon" type="tel" value={manualContactPhone} onChange={(e) => setManualContactPhone(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-3 mb-4 text-sm"/>
+            <button onClick={() => {if(manualContactName) setInputText(`${manualContactName} (${manualContactPhone}) - `); setShowManualContactModal(false); setManualContactName(''); setManualContactPhone('');}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm">Ekle</button>
+            <button onClick={() => setShowManualContactModal(false)} className="w-full mt-2 text-slate-400 text-xs py-2">İptal</button>
           </div>
         </div>
       )}
