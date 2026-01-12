@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// --- FIREBASE AYARLARI ---
+// --- FIREBASE AYARLARI (SİZİN VERDİĞİNİZ) ---
 const firebaseConfig = {
   apiKey: "AIzaSyD6ZVlcJYZPfJ5RQEWZGnrh4sBmwHS9_2U",
   authDomain: "randevular-talepler.firebaseapp.com",
@@ -59,8 +59,8 @@ try {
   console.error("Firebase Başlatma Hatası:", e);
 }
 
-// --- ANA İÇERİK ---
-function MainContent() {
+// --- ANA İÇERİK (DÜZELTİLDİ: İsmi App Olarak Değiştirildi) ---
+function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -511,7 +511,7 @@ function MainContent() {
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
-        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V31</p>
+        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V32</p>
         <button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg">
            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap
         </button>
@@ -525,13 +525,13 @@ function MainContent() {
       {/* ÜST BAR */}
       <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14">
         <div className="flex items-center gap-2">
-          <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
+          <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
           <div className="flex flex-col justify-center h-full pt-1">
             <h1 className="font-bold text-xs text-orange-400 leading-tight">Talep - Randevu Asistanı</h1>
             <div className="flex items-center gap-2 mt-0">
-               <img src="https://i.hizliresim.com/fa4ibjl.png" className="h-9 w-auto object-contain"/>
+               <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V31</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V32</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -715,6 +715,7 @@ function MainContent() {
 
                   <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
                   
+                  {/* Özellik Etiketleri */}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {item.tags.map(tag => (
@@ -981,7 +982,7 @@ function MainContent() {
 export default function AppWrapper() {
   return (
     <ErrorBoundary>
-      <MainContent />
+      <App />
     </ErrorBoundary>
   );
 }
