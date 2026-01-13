@@ -103,7 +103,7 @@ function App() {
   const [priceFilter, setPriceFilter] = useState({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
    
-  // Takvim
+  // Takvim State'leri
   const [isCalendarView, setIsCalendarView] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
@@ -154,12 +154,12 @@ function App() {
     const timeout = setTimeout(() => {
         if(loading) {
             setLoading(false);
-            if (!user) setErrorMsg("Bağlantı yavaş. Lütfen sayfayı yenileyin.");
+            if (!user) setErrorMsg("Bağlantı yavaş veya giriş yapılmadı.");
         }
     }, 15000);
 
     if (!auth) { 
-      setErrorMsg("Firebase başlatılamadı."); 
+      setErrorMsg("Firebase hizmeti başlatılamadı."); 
       setLoading(false); 
       return; 
     }
@@ -241,7 +241,7 @@ function App() {
   }, [categories]);
 
   const triggerNotification = (text) => {
-    if(alarmSound.current) alarmSound.current.play().catch(e=>console.log(e));
+    if(alarmSound.current) alarmSound.current.play().catch(e=>console.log("Ses çalınamadı", e));
     if (Notification.permission === "granted") {
       if (navigator.serviceWorker && navigator.serviceWorker.ready) {
          navigator.serviceWorker.ready.then(reg => reg.showNotification("Emlak Asistanı", { body: text, icon: 'https://i.hizliresim.com/arpast7.jpeg', vibrate: [200, 100, 200] }));
@@ -295,50 +295,6 @@ function App() {
       }
     }
     return { phone, text, price };
-  };
-
-  const parseDateFromText = (text) => {
-    const lower = text.toLocaleLowerCase('tr-TR');
-    let targetDate = new Date();
-    let found = false;
-
-    if (lower.includes('yarın')) { targetDate.setDate(targetDate.getDate() + 1); found = true; } 
-    else if (lower.includes('öbür gün')) { targetDate.setDate(targetDate.getDate() + 2); found = true; }
-    
-    const days = ['pazar', 'pazartesi', 'salı', 'çarşamba', 'perşembe', 'cuma', 'cumartesi'];
-    const todayIndex = targetDate.getDay(); 
-    for (let i = 0; i < days.length; i++) {
-        if (lower.includes(days[i])) {
-            let diff = i - todayIndex;
-            if (diff <= 0) diff += 7; 
-            if (lower.includes('haftaya')) diff += 7;
-            targetDate = new Date(); 
-            targetDate.setDate(targetDate.getDate() + diff);
-            found = true;
-            break; 
-        }
-    }
-    let hour = 9; let minute = 0;
-    if (lower.includes('akşam')) hour = 19;
-    else if (lower.includes('sabah')) hour = 9;
-    else if (lower.includes('öğlen')) hour = 13;
-    else if (lower.includes('ikindi')) hour = 16;
-    const timeMatch = lower.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
-    if (timeMatch) {
-        let h = parseInt(timeMatch[1]);
-        if (h < 24) {
-             if (h < 12 && (lower.includes('akşam') || lower.includes('öğleden sonra'))) h += 12;
-             hour = h;
-             if (timeMatch[3]) minute = parseInt(timeMatch[3]);
-        }
-    }
-    targetDate.setHours(hour, minute, 0, 0);
-    if (found) {
-        const offset = targetDate.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(targetDate - offset)).toISOString().slice(0, 16);
-        return { date: localISOTime, active: true };
-    }
-    return { date: '', active: false };
   };
 
   const handleFileUpload = async (e) => {
@@ -411,23 +367,18 @@ function App() {
     let alarmTime = '';
     let alarmActive = false;
     
-    // Tarih Algılama
+    // Basit Tarih/Saat Kontrolü (Daha önce yaptığım karmaşık NLP'yi kaldırdım, manuel seçime güveniyoruz)
     if (forcedDate) {
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
         const offset = d.getTimezoneOffset() * 60000;
         alarmTime = (new Date(d.getTime() - offset)).toISOString().slice(0, 16);
         alarmActive = true;
-    } else {
-        const parsedDate = parseDateFromText(textToProcess);
-        if (parsedDate.active) { alarmTime = parsedDate.date; alarmActive = true; }
     }
 
     const newItem = { id: timestamp, adNo: newAdNo, text: textToProcess, phone, contactName, date: fullDate, price, alarmTime: alarmTime, alarmActive: alarmActive, tags: detectedTags, cityId: detectedCityId, cityName: detectedCityName, dealType: dealType };
     let targetCategoryId = 'cat_todo';
-    const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı'];
-    const isAppointment = appointmentTriggers.some(trigger => lowerText.includes(trigger));
     
-    if (forcedDate || isAppointment || alarmActive) { targetCategoryId = 'cat_randevu'; } 
+    if (forcedDate || alarmActive) { targetCategoryId = 'cat_randevu'; } 
     else if (lowerText.includes('devren')) { targetCategoryId = 'cat_devren'; } 
     else {
         const priorityOrder = ['cat_ticari', 'cat_tarla', 'cat_bahce', 'cat_arsa', 'cat_konut'];
@@ -511,6 +462,31 @@ function App() {
     recognition.start();
   };
 
+  // Eksik fonksiyon eklendi
+  const getProcessedItems = (items) => {
+    if (!items) return []; 
+    let result = [...items];
+    if (activeCityFilter !== 'all') { result = result.filter(item => item.cityId === activeCityFilter); }
+    if (activeDealType !== 'all' && activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu') { result = result.filter(item => item.dealType === activeDealType); }
+    if (activeFilters.length > 0) { result = result.filter(item => activeFilters.every(filterTag => item.tags && item.tags.includes(filterTag))); }
+    if (priceFilter.min !== '') { result = result.filter(item => item.price >= parseFloat(priceFilter.min)); }
+    if (priceFilter.max !== '') { result = result.filter(item => item.price <= parseFloat(priceFilter.max)); }
+    result.sort((a, b) => {
+      switch (sortOption) {
+        case 'date_asc': return a.id - b.id;
+        case 'date_desc': return b.id - a.id;
+        case 'price_asc': return (a.price || 0) - (b.price || 0);
+        case 'price_desc': return (b.price || 0) - (a.price || 0);
+        default: return b.id - a.id;
+      }
+    });
+    return result;
+  };
+
+  const formatCurrency = (amount) => { if (!amount) return ''; return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(amount); };
+  const toggleFilter = (tag) => { if (activeFilters.includes(tag)) setActiveFilters(activeFilters.filter(t => t !== tag)); else setActiveFilters([...activeFilters, tag]); };
+  const handleContactPick = async () => { if ('contacts' in navigator && 'ContactsManager' in window) { try { const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false }); if (contacts.length) setInputText(`${contacts[0].name[0]} (${contacts[0].tel ? contacts[0].tel[0] : ''}) - `); } catch (ex) { setShowManualContactModal(true); } } else { setShowManualContactModal(true); } };
+  
   const downloadFile = (content, filename) => {
     const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8' });
     const element = document.createElement("a");
@@ -565,12 +541,12 @@ function App() {
 
   if (errorMsg) return <div className="h-screen flex items-center justify-center p-6 bg-slate-900 text-white text-center"><AlertTriangle size={64} className="text-red-500 mb-4"/><p>{errorMsg}</p></div>;
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 size={32} className="animate-spin text-blue-600"/></div>;
-  if (!user) return <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white"><img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/><h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1><p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V52 (STABLE & SPLIT)</p><button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap</button></div>;
+  if (!user) return <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white"><img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/><h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1><p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V52 (RESTORED)</p><button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap</button></div>;
 
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- TAKVİM HÜCRELERİNİ OLUŞTURMA (JSX Karmaşasını önlemek için burada hesaplanır) ---
+  // --- TAKVİM HÜCRELERİNİ OLUŞTURMA ---
   const calendarDays = getDaysInMonth(currentCalendarDate);
   const calendarGrid = calendarDays.map((date, i) => {
     if (!date) return <div key={i} className="bg-transparent"></div>;
@@ -681,95 +657,21 @@ function App() {
       {/* İÇERİK */}
       <div className="flex-1 overflow-y-auto p-4 pb-36 bg-slate-50">
         
-        {/* SPLIT VIEW TAKVİM (HATASIZ) */}
+        {/* TAKVİM GÖRÜNÜMÜ */}
         {isCalendarView && activeTabId === 'cat_randevu' ? (
-          <div className="flex flex-col lg:flex-row h-full gap-4">
-             {/* SOL: LİSTE */}
-             <div className="w-full lg:w-1/2 h-1/2 lg:h-full overflow-y-auto border rounded-xl p-2 bg-white shadow-sm">
-                <h4 className="text-xs font-bold text-slate-400 mb-2 uppercase sticky top-0 bg-white pb-1 border-b">Randevu Listesi</h4>
-                {displayItems.length === 0 ? <p className="text-xs text-center text-slate-400 mt-10">Kayıt yok.</p> : (
-                  <div className="space-y-2">
-                    {displayItems.map(item => (
-                      <div key={item.id} className="border-b pb-2 last:border-0 hover:bg-slate-50 p-2 rounded cursor-pointer" onClick={() => setEditingItem({originalCatId: 'cat_randevu', targetCatId: 'cat_randevu', item: {...item}})}>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-bold text-xs text-indigo-700">#{item.adNo}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{item.alarmTime ? new Date(item.alarmTime).toLocaleString('tr-TR', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'}) : item.date}</span>
-                        </div>
-                        <p className="text-xs text-slate-700 line-clamp-2">{item.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+             <div className="flex justify-between items-center mb-4">
+                 <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16}/></button>
+                 <h3 className="font-bold text-sm text-slate-800">
+                   {currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
+                 </h3>
+                 <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16}/></button>
              </div>
-             
-             {/* SAĞ: TAKVİM & DETAY */}
-             <div className="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {calendarSelectedDate ? (
-                   // GÜN DETAYI
-                   <div className="flex flex-col h-full p-4">
-                      <div className="flex justify-between items-center mb-4 border-b pb-2">
-                        <button onClick={() => setCalendarSelectedDate(null)} className="flex items-center gap-1 text-slate-500 hover:text-slate-800 text-xs font-bold">
-                          <ChevronLeft size={16}/> Geri
-                        </button>
-                        <h3 className="font-bold text-slate-800">{calendarSelectedDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}</h3>
-                        <div className="w-8"></div>
-                      </div>
-                      
-                      <div className="flex-1 overflow-y-auto space-y-2">
-                         {categories.find(c => c.id === 'cat_randevu').items
-                            .filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString())
-                            .sort((a,b) => new Date(a.alarmTime) - new Date(b.alarmTime))
-                            .map(item => (
-                              <div key={item.id} className="flex gap-2 items-start p-2 bg-indigo-50 rounded border border-indigo-100">
-                                 <span className="font-bold text-indigo-700 text-xs mt-0.5">{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span>
-                                 <div className="flex-1">
-                                    <p className="text-xs text-slate-800">{item.text}</p>
-                                    {item.contactName && <p className="text-[10px] text-slate-500">{item.contactName}</p>}
-                                 </div>
-                              </div>
-                            ))
-                         }
-                         {categories.find(c => c.id === 'cat_randevu').items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString()).length === 0 && (
-                            <div className="text-center text-slate-400 text-xs py-10">Bugün için plan yok.</div>
-                         )}
-                      </div>
-
-                      <div className="mt-2 pt-2 border-t flex gap-2">
-                        <div className="flex-1 relative">
-                            <input 
-                              value={calendarInputText} 
-                              onChange={(e) => setCalendarInputText(e.target.value)} 
-                              placeholder="Saat 14:00 Toplantı..." 
-                              className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 pr-8"
-                              onKeyDown={(e) => {
-                                if(e.key === 'Enter') handleCalendarAdd();
-                              }}
-                            />
-                            <button onClick={startListeningCalendar} className="absolute right-1 top-1 p-1 text-slate-400 hover:text-red-500">
-                                <Mic size={14}/>
-                            </button>
-                        </div>
-                        <button onClick={handleCalendarAdd} className="bg-indigo-600 text-white p-2 rounded-lg"><Plus size={18}/></button>
-                      </div>
-                   </div>
-                ) : (
-                   // TAKVİM IZGARASI
-                   <div className="flex flex-col h-full p-2">
-                      <div className="flex justify-between items-center mb-2 flex-shrink-0">
-                         <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={16}/></button>
-                         <h3 className="font-bold text-sm text-slate-800">
-                           {currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
-                         </h3>
-                         <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={16}/></button>
-                     </div>
-                     <div className="grid grid-cols-7 gap-0.5 text-center mb-1 flex-shrink-0">
-                       {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="font-bold text-slate-400 text-[0.6rem]">{d}</div>)}
-                     </div>
-                     <div className="grid grid-cols-7 gap-0.5 auto-rows-fr flex-1 overflow-y-auto">
-                        {calendarGrid}
-                     </div>
-                   </div>
-                )}
+             <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
+               {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'].map(d => <div key={d} className="font-bold text-slate-400 text-[0.6rem]">{d}</div>)}
+             </div>
+             <div className="grid grid-cols-7 gap-0.5 auto-rows-fr">
+                {calendarGrid}
              </div>
           </div>
         ) : (
@@ -865,6 +767,37 @@ function App() {
       )}
 
       {/* MODALLAR */}
+      {calendarSelectedDate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
+            <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
+            <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
+            <p className="text-xs text-slate-500 mb-4">Bu tarihe randevu ekleyin</p>
+            <textarea value={calendarInputText} onChange={(e) => setCalendarInputText(e.target.value)} placeholder="Randevu notu..." className="w-full bg-slate-100 rounded-lg p-3 text-sm h-20 mb-3"/>
+            <div className="flex gap-2">
+              <button onClick={startListeningCalendar} className={`p-3 rounded-xl flex-shrink-0 transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}><Mic size={20}/></button>
+              <button onClick={handleCalendarAdd} className="flex-1 bg-indigo-600 text-white font-bold rounded-xl text-sm">EKLE</button>
+            </div>
+            
+            {/* O GÜNÜN RANDEVULARI LİSTESİ */}
+            <div className="mt-4 border-t pt-2 max-h-40 overflow-y-auto">
+               <h4 className="text-xs font-bold text-slate-500 mb-2">Günün Planı</h4>
+               {categories.find(c => c.id === 'cat_randevu').items
+                  .filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString())
+                  .sort((a,b) => new Date(a.alarmTime) - new Date(b.alarmTime))
+                  .map(item => (
+                    <div key={item.id} className="bg-indigo-50 p-2 mb-1 rounded text-xs border border-indigo-100">
+                       <span className="font-bold text-indigo-700">{new Date(item.alarmTime).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span> - {item.text}
+                    </div>
+                  ))
+               }
+               {categories.find(c => c.id === 'cat_randevu').items.filter(item => item.alarmTime && new Date(item.alarmTime).toDateString() === calendarSelectedDate.toDateString()).length === 0 && (
+                 <p className="text-xs text-slate-400 italic">Plan yok.</p>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {showImportModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
