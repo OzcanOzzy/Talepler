@@ -136,6 +136,19 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
+    // SCROLL DÜZELTME (GLOBAL CSS)
+    // Telefonun kendi kaydırmasını iptal et, sadece bizim div'e izin ver.
+    const style = document.createElement('style');
+    style.innerHTML = `
+      html, body, #root {
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        touch-action: pan-y;
+      }
+    `;
+    document.head.appendChild(style);
+
     const timeout = setTimeout(() => {
         if(loading) {
             setLoading(false);
@@ -276,7 +289,6 @@ function App() {
     if (item.alarmTime) {
       targetDate = new Date(item.alarmTime);
     } else {
-      // Eğer alarm saati yoksa, varsayılan olarak şu anki saatten 1 saat sonrasını ayarla (Yönlendirme için)
       targetDate = new Date();
       targetDate.setHours(targetDate.getHours() + 1);
       targetDate.setMinutes(0);
@@ -286,7 +298,6 @@ function App() {
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     const formatDate = (date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
     
-    // Telefonun takvimini açan link
     const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Randevu: " + (item.contactName || "Müşteri"))}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(item.text + "\nTel: " + (item.phone || '-'))}`;
     window.open(url, '_blank');
   };
@@ -374,12 +385,10 @@ function App() {
     let targetDate = new Date();
     let found = false;
 
-    // 1. Gün Algılama
     const days = ['pazar', 'pazartesi', 'salı', 'çarşamba', 'perşembe', 'cuma', 'cumartesi'];
     const currentDayIndex = now.getDay();
     let targetDayIndex = -1;
 
-    // "Pazartesi", "Salı" vb. kelimeleri ara
     for (let i = 0; i < days.length; i++) {
         if (lower.includes(days[i])) {
             targetDayIndex = i;
@@ -388,7 +397,6 @@ function App() {
         }
     }
 
-    // Haftaya / Gelecek / Önümüzdeki mantığı
     let addWeeks = 0;
     if (lower.includes('haftaya') || lower.includes('gelecek') || lower.includes('önümüzdeki')) {
         addWeeks = 1;
@@ -399,16 +407,13 @@ function App() {
         targetDate.setDate(targetDate.getDate() + 1);
         found = true;
     } else if (targetDayIndex !== -1) {
-        // Hedef güne kaç gün var?
         let diff = targetDayIndex - currentDayIndex;
-        if (diff <= 0) diff += 7; // Geçmiş günse veya bugünse bir sonraki haftaya at
+        if (diff <= 0) diff += 7; 
         targetDate.setDate(targetDate.getDate() + diff + (addWeeks * 7));
     } else if (addWeeks > 0) {
-        // Gün belirtmeden sadece "haftaya" dediyse 7 gün ekle
         targetDate.setDate(targetDate.getDate() + 7);
     }
 
-    // 2. Saat Algılama (Daha Akıllı)
     const timeMatch = lower.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
     let hours = 9; 
     let minutes = 0;
@@ -416,9 +421,6 @@ function App() {
     if (timeMatch) {
         hours = parseInt(timeMatch[1]);
         if (timeMatch[3]) minutes = parseInt(timeMatch[3]);
-        
-        // Emlak/İş Mantığı: Eğer sayı 8'den küçükse ve "sabah" veya "gece" denmediyse, öğleden sonra (PM) kabul et.
-        // Örn: "Saat 5" -> 17:00, "Saat 2" -> 14:00. "Saat 9" -> 09:00
         if (hours < 8 && !lower.includes('sabah') && !lower.includes('gece')) {
             hours += 12;
         }
@@ -428,7 +430,6 @@ function App() {
     targetDate.setHours(hours, minutes, 0, 0);
 
     if (found) {
-        // Format YYYY-MM-DDTHH:MM
         const y = targetDate.getFullYear();
         const m = String(targetDate.getMonth() + 1).padStart(2, '0');
         const d = String(targetDate.getDate()).padStart(2, '0');
@@ -463,18 +464,15 @@ function App() {
     const detectedTags = availableTags.filter(tag => lowerText.includes(tag.toLocaleLowerCase('tr-TR')));
     const newAdNo = lastAdNumber + 1;
     
-    // --- Alarm ve Takvim Mantığı ---
     let alarmTime = '';
     let alarmActive = false;
 
     if (forcedDate) {
-        // Takvimden seçilen tarih
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
         const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
         alarmTime = `${year}-${month}-${day}T09:00`; 
         alarmActive = true;
     } else {
-        // Metin içinden tarih bulma
         const detectedDate = parseDateFromText(textToProcess);
         if (detectedDate) {
             alarmTime = detectedDate;
@@ -512,8 +510,6 @@ function App() {
     setInputText('');
     setTimeout(() => setFeedbackMsg(''), 3000);
 
-    // İSTİSNASIZ TAKVİM YÖNLENDİRMESİ
-    // Eğer Randevular kategorisine düştüyse, alarm tarihi olmasa bile takvimi aç.
     if (targetCategoryId === 'cat_randevu') {
        addToGoogleCalendar(newItem);
     }
@@ -681,12 +677,10 @@ function App() {
   const displayItems = getProcessedItems(activeCategory.items);
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden" style={{overscrollBehavior: 'none'}}>
+    <div className="fixed inset-0 flex flex-col w-full h-full bg-slate-50 font-sans text-slate-800">
       
-      {/* ----------------- SABİT ÜST KISIM (HEADER GROUP) ----------------- */}
+      {/* ÜST BAR (Sabit) */}
       <div className="flex-none bg-white z-40 relative shadow-sm">
-        
-        {/* 1. Logo ve Üst Bar */}
         <div className="bg-slate-900 text-white p-2 flex justify-between items-center h-14">
           <div className="flex items-center gap-2">
             <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
@@ -710,7 +704,6 @@ function App() {
           </div>
         </div>
 
-        {/* 2. Kategoriler (Randevular, Yapılacaklar...) */}
         <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide bg-white">
           <div className="flex p-2 gap-2 w-max">
             {categories.map(cat => (
@@ -722,7 +715,6 @@ function App() {
           </div>
         </div>
 
-        {/* 3. Takvim Butonu */}
         {activeTabId === 'cat_randevu' && (
           <div className="px-4 py-2 flex justify-end border-b border-slate-200 bg-slate-50">
             <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
@@ -731,7 +723,6 @@ function App() {
           </div>
         )}
 
-        {/* 4. Şehir Filtreleri */}
         {!isCalendarView && (
           <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 bg-slate-100">
             <div className="flex px-2 gap-2 w-max items-center">
@@ -746,7 +737,6 @@ function App() {
           </div>
         )}
 
-        {/* 5. Satılık/Kiralık Filtreleri */}
         {!isCalendarView && activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
           <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2 bg-slate-50">
             <div className="flex gap-2 w-max items-center">
@@ -758,7 +748,6 @@ function App() {
           </div>
         )}
 
-        {/* 6. Ekstra Filtreler (Açılırsa) */}
         {!isCalendarView && showFilters && (
           <div className="border-b border-slate-200 p-3 z-10 bg-slate-100">
             <div className="flex items-center gap-2 mb-3">
@@ -785,12 +774,9 @@ function App() {
           </div>
         )}
       </div>
-      {/* ----------------- SABİT ÜST KISIM BİTTİ ----------------- */}
 
-
-      {/* ----------------- ORTA KISIM (KAYDIRILABİLİR) ----------------- */}
-      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-32 overscroll-contain"> 
-        {/* overscroll-contain eklendi */}
+      {/* ORTA KISIM (LİSTE) */}
+      <div className="flex-1 overflow-y-auto p-4 pb-32 bg-slate-50 w-full relative">
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -886,12 +872,10 @@ function App() {
           )
         )}
       </div>
-      {/* ----------------- ORTA KISIM BİTTİ ----------------- */}
 
-
-      {/* ----------------- ALT KISIM (SABİT GİRİŞ ALANI) ----------------- */}
+      {/* ALT KISIM (Sabit Giriş) */}
       {!isCalendarView && (
-        <div className="bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 shrink-0 relative">
+        <div className="flex-none bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
           <div className="flex gap-2 items-end">
             <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
@@ -914,10 +898,9 @@ function App() {
           </div>
         </div>
       )}
-      {/* ----------------- ALT KISIM BİTTİ ----------------- */}
 
-
-      {/* MENÜLER VE MODALLAR (AYNEN KORUNDU) */}
+      {/* MODALLAR */}
+      
       {showMenu && (
         <div className="absolute top-14 right-2 bg-white rounded-xl shadow-2xl border border-slate-300 z-[100] w-64 p-2 animate-in slide-in-from-top-2">
           <div className="px-3 py-2 border-b border-slate-100 mb-2">
