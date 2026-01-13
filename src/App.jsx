@@ -136,15 +136,17 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    // SCROLL DÜZELTME (GLOBAL CSS)
-    // Telefonun kendi kaydırmasını iptal et, sadece bizim div'e izin ver.
+    // GLOBAL CSS FIX: APK Kaydırma Sorunu İçin "body" kilitleme
     const style = document.createElement('style');
     style.innerHTML = `
       html, body, #root {
         height: 100%;
+        margin: 0;
+        padding: 0;
         overflow: hidden;
         overscroll-behavior: none;
-        touch-action: pan-y;
+        position: fixed;
+        width: 100%;
       }
     `;
     document.head.appendChild(style);
@@ -378,7 +380,6 @@ function App() {
     reader.readAsText(file, "UTF-8");
   };
 
-  // --- GELİŞMİŞ TARİH AYIKLAMA MOTORU (NLP) ---
   const parseDateFromText = (text) => {
     const now = new Date();
     const lower = text.toLocaleLowerCase('tr-TR');
@@ -676,11 +677,14 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
+  // --- KİLİTLİ EKRAN YAPISI ---
   return (
-    <div className="fixed inset-0 flex flex-col w-full h-full bg-slate-50 font-sans text-slate-800">
+    <div className="fixed inset-0 w-full h-full bg-slate-50 flex flex-col overflow-hidden">
       
-      {/* ÜST BAR (Sabit) */}
+      {/* ----------------- SABİT ÜST KISIM (HEADER GROUP) ----------------- */}
       <div className="flex-none bg-white z-40 relative shadow-sm">
+        
+        {/* 1. Logo ve Üst Bar */}
         <div className="bg-slate-900 text-white p-2 flex justify-between items-center h-14">
           <div className="flex items-center gap-2">
             <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
@@ -704,6 +708,7 @@ function App() {
           </div>
         </div>
 
+        {/* 2. Kategoriler (Randevular, Yapılacaklar...) */}
         <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide bg-white">
           <div className="flex p-2 gap-2 w-max">
             {categories.map(cat => (
@@ -715,6 +720,7 @@ function App() {
           </div>
         </div>
 
+        {/* 3. Takvim Butonu */}
         {activeTabId === 'cat_randevu' && (
           <div className="px-4 py-2 flex justify-end border-b border-slate-200 bg-slate-50">
             <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
@@ -723,6 +729,7 @@ function App() {
           </div>
         )}
 
+        {/* 4. Şehir Filtreleri */}
         {!isCalendarView && (
           <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 bg-slate-100">
             <div className="flex px-2 gap-2 w-max items-center">
@@ -737,6 +744,7 @@ function App() {
           </div>
         )}
 
+        {/* 5. Satılık/Kiralık Filtreleri */}
         {!isCalendarView && activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
           <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2 bg-slate-50">
             <div className="flex gap-2 w-max items-center">
@@ -748,6 +756,7 @@ function App() {
           </div>
         )}
 
+        {/* 6. Ekstra Filtreler (Açılırsa) */}
         {!isCalendarView && showFilters && (
           <div className="border-b border-slate-200 p-3 z-10 bg-slate-100">
             <div className="flex items-center gap-2 mb-3">
@@ -774,9 +783,11 @@ function App() {
           </div>
         )}
       </div>
+      {/* ----------------- SABİT ÜST KISIM BİTTİ ----------------- */}
 
-      {/* ORTA KISIM (LİSTE) */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32 bg-slate-50 w-full relative">
+
+      {/* ----------------- ORTA KISIM (KAYDIRILABİLİR) ----------------- */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-32" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'none' }}> 
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -872,8 +883,10 @@ function App() {
           )
         )}
       </div>
+      {/* ----------------- ORTA KISIM BİTTİ ----------------- */}
 
-      {/* ALT KISIM (Sabit Giriş) */}
+
+      {/* ----------------- ALT KISIM (SABİT GİRİŞ ALANI) ----------------- */}
       {!isCalendarView && (
         <div className="flex-none bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
@@ -898,9 +911,10 @@ function App() {
           </div>
         </div>
       )}
+      {/* ----------------- ALT KISIM BİTTİ ----------------- */}
 
-      {/* MODALLAR */}
-      
+
+      {/* MENÜLER VE MODALLAR (AYNEN KORUNDU) */}
       {showMenu && (
         <div className="absolute top-14 right-2 bg-white rounded-xl shadow-2xl border border-slate-300 z-[100] w-64 p-2 animate-in slide-in-from-top-2">
           <div className="px-3 py-2 border-b border-slate-100 mb-2">
