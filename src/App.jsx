@@ -271,11 +271,23 @@ function App() {
   };
 
   const addToGoogleCalendar = (item) => {
-    if (!item.alarmTime) return; 
-    const startDate = new Date(item.alarmTime);
+    let targetDate;
+    
+    if (item.alarmTime) {
+      targetDate = new Date(item.alarmTime);
+    } else {
+      // Eğer alarm saati yoksa, varsayılan olarak şu anki saatten 1 saat sonrasını ayarla (Yönlendirme için)
+      targetDate = new Date();
+      targetDate.setHours(targetDate.getHours() + 1);
+      targetDate.setMinutes(0);
+    }
+
+    const startDate = targetDate;
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     const formatDate = (date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Randevu: " + (item.contactName || "Müşteri"))}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(item.text + "\nTel: " + item.phone)}`;
+    
+    // Telefonun takvimini açan link
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Randevu: " + (item.contactName || "Müşteri"))}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(item.text + "\nTel: " + (item.phone || '-'))}`;
     window.open(url, '_blank');
   };
 
@@ -355,6 +367,78 @@ function App() {
     reader.readAsText(file, "UTF-8");
   };
 
+  // --- GELİŞMİŞ TARİH AYIKLAMA MOTORU (NLP) ---
+  const parseDateFromText = (text) => {
+    const now = new Date();
+    const lower = text.toLocaleLowerCase('tr-TR');
+    let targetDate = new Date();
+    let found = false;
+
+    // 1. Gün Algılama
+    const days = ['pazar', 'pazartesi', 'salı', 'çarşamba', 'perşembe', 'cuma', 'cumartesi'];
+    const currentDayIndex = now.getDay();
+    let targetDayIndex = -1;
+
+    // "Pazartesi", "Salı" vb. kelimeleri ara
+    for (let i = 0; i < days.length; i++) {
+        if (lower.includes(days[i])) {
+            targetDayIndex = i;
+            found = true;
+            break;
+        }
+    }
+
+    // Haftaya / Gelecek / Önümüzdeki mantığı
+    let addWeeks = 0;
+    if (lower.includes('haftaya') || lower.includes('gelecek') || lower.includes('önümüzdeki')) {
+        addWeeks = 1;
+        found = true;
+    }
+
+    if (lower.includes('yarın')) {
+        targetDate.setDate(targetDate.getDate() + 1);
+        found = true;
+    } else if (targetDayIndex !== -1) {
+        // Hedef güne kaç gün var?
+        let diff = targetDayIndex - currentDayIndex;
+        if (diff <= 0) diff += 7; // Geçmiş günse veya bugünse bir sonraki haftaya at
+        targetDate.setDate(targetDate.getDate() + diff + (addWeeks * 7));
+    } else if (addWeeks > 0) {
+        // Gün belirtmeden sadece "haftaya" dediyse 7 gün ekle
+        targetDate.setDate(targetDate.getDate() + 7);
+    }
+
+    // 2. Saat Algılama (Daha Akıllı)
+    const timeMatch = lower.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
+    let hours = 9; 
+    let minutes = 0;
+
+    if (timeMatch) {
+        hours = parseInt(timeMatch[1]);
+        if (timeMatch[3]) minutes = parseInt(timeMatch[3]);
+        
+        // Emlak/İş Mantığı: Eğer sayı 8'den küçükse ve "sabah" veya "gece" denmediyse, öğleden sonra (PM) kabul et.
+        // Örn: "Saat 5" -> 17:00, "Saat 2" -> 14:00. "Saat 9" -> 09:00
+        if (hours < 8 && !lower.includes('sabah') && !lower.includes('gece')) {
+            hours += 12;
+        }
+        found = true;
+    }
+
+    targetDate.setHours(hours, minutes, 0, 0);
+
+    if (found) {
+        // Format YYYY-MM-DDTHH:MM
+        const y = targetDate.getFullYear();
+        const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const d = String(targetDate.getDate()).padStart(2, '0');
+        const h = String(targetDate.getHours()).padStart(2, '0');
+        const min = String(targetDate.getMinutes()).padStart(2, '0');
+        return `${y}-${m}-${d}T${h}:${min}`;
+    }
+    return null;
+  };
+
   const processCommand = (rawText, specificContact = null, forcedDate = null) => {
     if (!rawText.trim() && !specificContact) return;
     
@@ -366,60 +450,44 @@ function App() {
     let { phone, text, price } = extractInfo(textToProcess);
     let contactName = '';
     if (specificContact) { contactName = specificContact.name; if (specificContact.tel) phone = specificContact.tel; } 
+    
     let detectedCityId = null; let detectedCityName = '';
     for (const city of cities) {
       const cityKeys = city.keywords.split(',').map(k => k.trim().toLocaleLowerCase('tr-TR')).filter(k => k !== '');
       if (cityKeys.some(key => lowerText.includes(key))) { detectedCityId = city.id; detectedCityName = city.title; break; }
     }
+    
     let dealType = 'sale'; 
     if (lowerText.includes('kiralık') || lowerText.includes('kira')) dealType = 'rent'; 
     else if (lowerText.includes('satılık')) dealType = 'sale';
     const detectedTags = availableTags.filter(tag => lowerText.includes(tag.toLocaleLowerCase('tr-TR')));
     const newAdNo = lastAdNumber + 1;
     
-    // --- AKILLI TARİH ALGILAYICI ---
+    // --- Alarm ve Takvim Mantığı ---
     let alarmTime = '';
     let alarmActive = false;
 
     if (forcedDate) {
+        // Takvimden seçilen tarih
         const d = new Date(forcedDate); d.setHours(9, 0, 0, 0);
         const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
         alarmTime = `${year}-${month}-${day}T09:00`; 
         alarmActive = true;
     } else {
-        const timeMatch = lowerText.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
-        const hasYarin = lowerText.includes('yarın');
-        const hasBugun = lowerText.includes('bugün');
-
-        if (hasYarin || hasBugun || timeMatch) {
-            let targetDate = new Date();
-            if (hasYarin) targetDate.setDate(targetDate.getDate() + 1);
-            
-            let hours = 9; 
-            let minutes = 0;
-
-            if (timeMatch) {
-                hours = parseInt(timeMatch[1]);
-                if (timeMatch[3]) minutes = parseInt(timeMatch[3]);
-            }
-
-            targetDate.setHours(hours, minutes, 0, 0);
-            
-            const y = targetDate.getFullYear();
-            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const d = String(targetDate.getDate()).padStart(2, '0');
-            const h = String(targetDate.getHours()).padStart(2, '0');
-            const min = String(targetDate.getMinutes()).padStart(2, '0');
-            
-            alarmTime = `${y}-${m}-${d}T${h}:${min}`;
+        // Metin içinden tarih bulma
+        const detectedDate = parseDateFromText(textToProcess);
+        if (detectedDate) {
+            alarmTime = detectedDate;
             alarmActive = true;
         }
     }
 
     const newItem = { id: timestamp, adNo: newAdNo, text: text, phone, contactName, date: fullDate, price, alarmTime: alarmTime, alarmActive: alarmActive, tags: detectedTags, cityId: detectedCityId, cityName: detectedCityName, dealType: dealType };
+    
     let targetCategoryId = 'cat_todo';
-    const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı'];
+    const appointmentTriggers = ['randevu', 'gösterim', 'gösterilecek', 'sunum', 'yer gösterme', 'bakılacak', 'yarın', 'saat', 'toplantı', 'haftaya', 'gün'];
     const isAppointment = appointmentTriggers.some(trigger => lowerText.includes(trigger));
+    
     if (alarmActive || isAppointment) { targetCategoryId = 'cat_randevu'; } 
     else if (lowerText.includes('devren')) { targetCategoryId = 'cat_devren'; } 
     else {
@@ -432,6 +500,7 @@ function App() {
           }
         }
     }
+
     const newCategories = categories.map(c => { if (c.id === targetCategoryId) { return { ...c, items: [newItem, ...c.items] }; } return c; });
     setCategories(newCategories);
     setLastAdNumber(newAdNo);
@@ -443,8 +512,9 @@ function App() {
     setInputText('');
     setTimeout(() => setFeedbackMsg(''), 3000);
 
-    // OTO TAKVİM TETİKLEME
-    if (alarmActive && alarmTime) {
+    // İSTİSNASIZ TAKVİM YÖNLENDİRMESİ
+    // Eğer Randevular kategorisine düştüyse, alarm tarihi olmasa bile takvimi aç.
+    if (targetCategoryId === 'cat_randevu') {
        addToGoogleCalendar(newItem);
     }
   };
@@ -611,7 +681,7 @@ function App() {
   const displayItems = getProcessedItems(activeCategory.items);
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden" style={{overscrollBehavior: 'none'}}>
       
       {/* ----------------- SABİT ÜST KISIM (HEADER GROUP) ----------------- */}
       <div className="flex-none bg-white z-40 relative shadow-sm">
@@ -719,8 +789,8 @@ function App() {
 
 
       {/* ----------------- ORTA KISIM (KAYDIRILABİLİR) ----------------- */}
-      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-24"> 
-        {/* pb-24: Listenin en altı giriş kutusunun altında kalmasın diye boşluk */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-32 overscroll-contain"> 
+        {/* overscroll-contain eklendi */}
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
