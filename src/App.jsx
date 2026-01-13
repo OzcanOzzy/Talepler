@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput, List
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -106,7 +106,11 @@ function App() {
    
   const [isCalendarView, setIsCalendarView] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+  
+  // Takvim için yeni state'ler
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null); // Ekleme için
+  const [viewingDayDate, setViewingDayDate] = useState(null); // Gün detayını görüntülemek için
+
   const [calendarInputText, setCalendarInputText] = useState('');
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -278,7 +282,7 @@ function App() {
   };
 
   const addToGoogleCalendar = (item) => {
-    if (!item.alarmTime) return alert("Lütfen önce bir alarm tarihi belirleyin.");
+    if (!item.alarmTime) return; // Uyarı vermeden çık, otomatik işlemde hata vermesin
     const startDate = new Date(item.alarmTime);
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     const formatDate = (date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
@@ -416,6 +420,11 @@ function App() {
     if(detectedCityId) setActiveCityFilter(detectedCityId);
     setInputText('');
     setTimeout(() => setFeedbackMsg(''), 3000);
+
+    // OTO TAKVİM (Hızlandırma)
+    if (alarmActive && alarmTime) {
+       addToGoogleCalendar(newItem);
+    }
   };
 
   const deleteItem = (catId, itemId) => {
@@ -610,7 +619,7 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- ANA DEĞİŞİKLİK BURADA (Scroll Fix) ---
+  // --- ANA DEĞİŞİKLİK BURADA (Scroll Fix: h-[100dvh]) ---
   return (
     <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
       
@@ -760,7 +769,7 @@ function App() {
 
                 return (
                   <div key={i} className={`aspect-square rounded-lg border text-xs flex flex-col items-center justify-center relative cursor-pointer hover:bg-indigo-50 ${dayEvents.length > 0 ? 'bg-indigo-50 border-indigo-200 font-bold text-indigo-700' : 'bg-white border-slate-100 text-slate-600'}`}
-                    onClick={() => setCalendarSelectedDate(date)} 
+                    onClick={() => setViewingDayDate(date)} 
                   >
                     {date.getDate()}
                     {dayEvents.length > 0 && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1"></div>}
@@ -863,6 +872,47 @@ function App() {
       )}
 
       {/* MODALLAR */}
+      
+      {/* YENİ: Takvim Günü Detay Modalı */}
+      {viewingDayDate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
+            <button onClick={() => setViewingDayDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
+            <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2">{viewingDayDate.toLocaleDateString('tr-TR')}</h3>
+            
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {(() => {
+                const dayEvents = categories.find(c => c.id === 'cat_randevu').items.filter(item => {
+                  if(!item.alarmTime) return false;
+                  const itemDate = new Date(item.alarmTime);
+                  return itemDate.getDate() === viewingDayDate.getDate() && itemDate.getMonth() === viewingDayDate.getMonth() && itemDate.getFullYear() === viewingDayDate.getFullYear();
+                });
+                
+                if(dayEvents.length === 0) return <p className="text-center text-sm text-slate-400 py-4">Bu güne ait randevu yok.</p>;
+
+                return dayEvents.map(event => (
+                  <div key={event.id} className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-sm">
+                     <div className="flex justify-between items-start mb-1">
+                        <span className="font-bold text-indigo-900">{new Date(event.alarmTime).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}</span>
+                        <div className="flex gap-1">
+                           <button onClick={() => {addToGoogleCalendar(event)}} className="p-1 bg-white rounded text-indigo-600"><Calendar size={14}/></button>
+                           <button onClick={() => {setEditingItem({originalCatId: 'cat_randevu', targetCatId: 'cat_randevu', item: {...event}}); setViewingDayDate(null);}} className="p-1 bg-white rounded text-slate-400"><Pencil size={14}/></button>
+                        </div>
+                     </div>
+                     <p className="text-slate-700">{event.text}</p>
+                     {event.contactName && <p className="text-xs text-slate-500 mt-1 font-bold">{event.contactName}</p>}
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <button onClick={() => { setCalendarSelectedDate(viewingDayDate); setViewingDayDate(null); }} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+               <Plus size={18}/> Yeni Ekle
+            </button>
+          </div>
+        </div>
+      )}
+
       {calendarSelectedDate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
@@ -1057,37 +1107,4 @@ function App() {
       )}
 
       {showInstallModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm relative my-8">
-            <button onClick={() => setShowInstallModal(false)} className="absolute top-4 right-4 text-slate-400"><X/></button>
-            <h3 className="text-lg font-bold text-center mb-6">Kurulum</h3>
-            <p className="text-sm text-center text-slate-500 mb-4">1. Sağ üst menüden "Ana Ekrana Ekle" deyin.<br/>2. Button Mapper ile ses tuşuna atayın.</p>
-            <button onClick={() => setShowInstallModal(false)} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Tamam</button>
-          </div>
-        </div>
-      )}
-      
-      {showManualContactModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
-            <h3 className="font-bold mb-4">Manuel Kişi Ekle</h3>
-            <input placeholder="Adı Soyadı" value={manualContactName} onChange={(e) => setManualContactName(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-3 mb-3 text-sm"/>
-            <input placeholder="Telefon" type="tel" value={manualContactPhone} onChange={(e) => setManualContactPhone(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-3 mb-4 text-sm"/>
-            <button onClick={() => {if(manualContactName) setInputText(`${manualContactName} (${manualContactPhone}) - `); setShowManualContactModal(false); setManualContactName(''); setManualContactPhone('');}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm">Ekle</button>
-            <button onClick={() => setShowManualContactModal(false)} className="w-full mt-2 text-slate-400 text-xs py-2">İptal</button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-// Hata Kalkanı ile Uygulamayı Sarmala (Dışa Aktarım Default Olarak)
-export default function AppWrapper() {
-  return (
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
-}
+        <div className="fixed inset
