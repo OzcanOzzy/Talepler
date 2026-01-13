@@ -6,7 +6,7 @@ import {
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
   Calendar, Bell, BellOff, Clock, Tag, Filter, ArrowUpDown, Banknote, FileText,
-  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw
+  Sprout, Flower, MapPin, Key, Store, Wallet, Volume2, LogOut, Loader2, CalendarDays, ChevronLeft, ChevronRight, Lock, AlertTriangle, RefreshCcw, FolderInput
 } from 'lucide-react';
 
 // --- HATA KALKANI ---
@@ -66,6 +66,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // --- KOD İÇİNDEKİ VARSAYILANLAR (MASTER) ---
   const defaultCategories = [
     { id: 'cat_randevu', title: 'Randevular', keywords: 'randevu,görüşme,buluşma,toplantı,yarın,saat,gösterilecek,gösterim,sunum,bakılacak', items: [], icon: 'calendar' },
     { id: 'cat_todo', title: 'Yapılacaklar', keywords: 'yapılacak,hatırlat,alınacak,git,gel,ara,sor,gönder,hazırla,not', items: [], icon: 'check' },
@@ -130,16 +131,17 @@ function App() {
 
   const alarmSound = useRef(null);
 
+  // --- FIREBASE VERİ DİNLEME VE BİRLEŞTİRME ---
   useEffect(() => {
     const timeout = setTimeout(() => {
         if(loading) {
             setLoading(false);
-            setErrorMsg("Bağlantı çok yavaş veya veritabanına erişilemiyor. Sayfayı yenileyip tekrar deneyin.");
+            setErrorMsg("Bağlantı çok yavaş. Lütfen sayfayı yenileyin.");
         }
     }, 15000);
 
     if (!auth) { 
-      setErrorMsg("Firebase başlatılamadı. Lütfen internet bağlantınızı kontrol edin."); 
+      setErrorMsg("Firebase başlatılamadı."); 
       setLoading(false); 
       return; 
     }
@@ -152,10 +154,42 @@ function App() {
         const unsubscribeData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if(data.categories && Array.isArray(data.categories)) setCategories(data.categories);
-            if(data.cities) setCities(data.cities);
-            if(data.tags) setAvailableTags(data.tags);
+            
+            // --- KATEGORİ BİRLEŞTİRME ---
+            const dbCategories = data.categories || [];
+            
+            // 1. Kodda olanları güncelle
+            const mergedDefaults = defaultCategories.map(defCat => {
+               const foundInDb = dbCategories.find(c => c.id === defCat.id);
+               return foundInDb ? { ...defCat, items: foundInDb.items } : defCat;
+            });
+
+            // 2. Kullanıcının sonradan eklediklerini (Kodda olmayanları) bul ve ekle
+            const customCategories = dbCategories.filter(dbCat => 
+               !defaultCategories.some(defCat => defCat.id === dbCat.id)
+            );
+
+            setCategories([...mergedDefaults, ...customCategories]);
+
+            // --- ŞEHİR BİRLEŞTİRME ---
+            const dbCities = data.cities || [];
+            const mergedCities = defaultCities.map(defCity => {
+               const foundInDb = dbCities.find(c => c.id === defCity.id);
+               return foundInDb || defCity;
+            });
+            const customCities = dbCities.filter(dbCity => 
+               !defaultCities.some(defCity => defCity.id === dbCity.id)
+            );
+            setCities([...mergedCities, ...customCities]);
+
+            // --- ETİKET BİRLEŞTİRME ---
+            const dbTags = data.tags || [];
+            // Benzersizleri al
+            const mergedTags = Array.from(new Set([...defaultTags, ...dbTags]));
+            setAvailableTags(mergedTags);
+
             if(data.lastAdNumber) setLastAdNumber(data.lastAdNumber);
+
           } else {
             saveToCloud(defaultCategories, defaultCities, defaultTags, 1000, currentUser);
           }
@@ -163,7 +197,7 @@ function App() {
           clearTimeout(timeout);
         }, (error) => {
            console.error("Veri Hatası:", error);
-           setErrorMsg("Veri okunamadı: " + error.message);
+           setErrorMsg("Veri okunamadı.");
            setLoading(false);
            clearTimeout(timeout);
         });
@@ -201,7 +235,7 @@ function App() {
       });
     } catch (e) {
       console.error("Kayıt Hatası:", e);
-      setFeedbackMsg(⚠️ Kayıt Başarısız!");
+      setFeedbackMsg("⚠️ Kayıt Başarısız!");
     }
   };
 
@@ -393,12 +427,20 @@ function App() {
 
   const saveItemChanges = () => {
     if (!editingItem) return;
-    const newCategories = categories.map(c => {
-      if (c.id === editingItem.catId) {
-        return { ...c, items: c.items.map(i => i.id === editingItem.item.id ? editingItem.item : i) };
-      }
-      return c;
-    });
+    
+    let newCategories = [...categories];
+    const { originalCatId, targetCatId, item } = editingItem;
+
+    if (originalCatId === targetCatId) {
+      newCategories = newCategories.map(c => {
+        if (c.id === originalCatId) return { ...c, items: c.items.map(i => i.id === item.id ? item : i) };
+        return c;
+      });
+    } else {
+      newCategories = newCategories.map(c => { if (c.id === originalCatId) return { ...c, items: c.items.filter(i => i.id !== item.id) }; return c; });
+      newCategories = newCategories.map(c => { if (c.id === targetCatId) return { ...c, items: [item, ...c.items] }; return c; });
+    }
+
     setCategories(newCategories);
     saveToCloud(newCategories, cities, availableTags, lastAdNumber);
     setEditingItem(null);
@@ -446,34 +488,72 @@ function App() {
   };
 
   const downloadAllData = () => {
-    let content = "--- EMLAK ASİSTANI TÜM KAYITLAR RAPORU ---\n\n";
+    let allItems = [];
+    categories.forEach(cat => { if(cat.items.length > 0) allItems = [...allItems, ...cat.items]; });
+    
+    // Tarihe göre değil, İlan Numarasına göre sırala (Büyükten Küçüğe)
+    allItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+
+    let fullContent = `========================================================================\r\n`;
+    fullContent += `   EMLAK ASİSTANI - TÜM VERİLER (YEDEKLER)\r\n`;
+    fullContent += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
+    fullContent += `========================================================================\r\n\r\n`;
+
+    // Kategorilendirilmiş çıktı
     categories.forEach(cat => {
       if(cat.items.length > 0) {
-        content += `\n=== ${cat.title.toUpperCase()} (${cat.items.length}) ===\n`;
-        cat.items.forEach(item => { content += `[#${item.adNo}] ${item.date} | ${item.text}\n`; });
+        fullContent += `\r\n>>> KATEGORİ: ${cat.title.toUpperCase()} (${cat.items.length} Kayıt) <<<\r\n`;
+        // O kategorideki itemleri sırala
+        const sortedItems = [...cat.items].sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+        sortedItems.forEach(item => {
+           fullContent += `[#${item.adNo || '---'}] ${item.date} | ${item.cityName || 'Şehir Yok'} | ${item.dealType==='rent'?'KİRALIK':'SATILIK'}\r\n`;
+           fullContent += `Kişi: ${item.contactName || '-'} (${item.phone || '-'})\r\n`;
+           if(item.price) fullContent += `Fiyat: ${formatCurrency(item.price)}\r\n`;
+           fullContent += `Not: ${item.text}\r\n`;
+           fullContent += `------------------------------------------------------\r\n`;
+        });
       }
     });
-    const element = document.createElement("a");
-    const file = new Blob(["\uFEFF" + content], {type: 'text/plain;charset=utf-8'});
-    element.href = URL.createObjectURL(file);
-    element.download = `Tum_Kayitlar.txt`;
-    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+
+    if (allItems.length === 0) return alert("İndirilecek kayıt yok.");
+    downloadFile(fullContent, `Tum_Kayitlar_${new Date().toLocaleDateString().replace(/\./g, '_')}.txt`);
     setShowMenu(false);
+  };
+
+  const downloadFile = (content, filename) => {
+    const blob = new Blob(["\uFEFF" + content], { type: 'text/plain;charset=utf-8' });
+    const element = document.createElement("a");
+    element.href = URL.createObjectURL(blob);
+    element.download = filename;
+    document.body.appendChild(element); element.click(); document.body.removeChild(element);
   };
 
   const downloadFilteredData = () => {
     const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
     const filteredItems = getProcessedItems(activeCategory.items);
     if (filteredItems.length === 0) { alert("Bu görünümde veri yok."); return; }
-    let content = `--- ${activeCategory.title.toUpperCase()} RAPORU ---\n\n`;
-    filteredItems.forEach((item, index) => {
-      content += `${index + 1}) ${item.text}\n------------------\n`;
+    
+    // Sıralama (İlan No)
+    filteredItems.sort((a, b) => (b.adNo || 0) - (a.adNo || 0));
+
+    let content = `========================================================================\r\n`;
+    content += `   ${activeCategory.title.toUpperCase()} RAPORU\r\n`;
+    content += `   Tarih: ${new Date().toLocaleString('tr-TR')}\r\n`;
+    content += `========================================================================\r\n\r\n`;
+    
+    filteredItems.forEach((item) => {
+        content += `------------------------------------------------------------------------\r\n`;
+        content += `[#${item.adNo || '---'}]  ${item.cityName ? item.cityName.toUpperCase() : 'GENEL'}  |  ${item.dealType === 'rent' ? 'KİRALIK' : 'SATILIK'}  |  ${item.date}\r\n`;
+        content += `------------------------------------------------------------------------\r\n`;
+        if(item.contactName || item.phone) {
+          content += `MÜŞTERİ : ${item.contactName || 'İsimsiz'}\r\n`;
+          content += `TELEFON : ${item.phone || '-'}\r\n`;
+        }
+        if(item.price) content += `FİYAT   : ${formatCurrency(item.price)}\r\n`;
+        content += `\r\nDETAYLAR:\r\n${item.text}\r\n\r\n`;
     });
-    const element = document.createElement("a");
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `Liste.txt`;
-    document.body.appendChild(element); element.click(); document.body.removeChild(element);
+    
+    downloadFile(content, `${activeCategory.title}_Raporu.txt`);
     setShowMenu(false);
   };
 
@@ -492,6 +572,8 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
+  // --- EKRAN TASARIMI ---
+  
   if (errorMsg) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -517,7 +599,7 @@ function App() {
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
-        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V34</p>
+        <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V37</p>
         <button onClick={handleLogin} className="bg-white text-slate-900 py-3 px-6 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-100 shadow-lg">
            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5"/> Google ile Giriş Yap
         </button>
@@ -525,7 +607,6 @@ function App() {
     );
   }
 
-  // --- displayItems Tanımı (DÜZELTİLDİ: Doğru Yere Taşındı) ---
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
@@ -541,7 +622,7 @@ function App() {
             <div className="flex items-center gap-2 mt-0">
                <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
                <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V34</p>
+                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V37</p>
                   <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
                </div>
             </div>
@@ -716,7 +797,6 @@ function App() {
                     </div>
                   )}
 
-                  {/* Kiralık/Satılık Etiketi */}
                   <div className="flex gap-2 mb-2">
                     {item.dealType === 'rent' && <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold">KİRALIK</span>}
                     {item.dealType === 'sale' && <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">SATILIK</span>}
@@ -724,7 +804,6 @@ function App() {
 
                   <p className="text-slate-700 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{item.text}</p>
                   
-                  {/* Özellik Etiketleri */}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {item.tags.map(tag => (
@@ -745,7 +824,7 @@ function App() {
                       {item.alarmTime && (
                         <button onClick={() => addToGoogleCalendar(item)} className="p-1.5 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100" title="Takvime Ekle"><Calendar size={16}/></button>
                       )}
-                      <button onClick={() => setEditingItem({catId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
+                      <button onClick={() => setEditingItem({originalCatId: activeCategory.id, targetCatId: activeCategory.id, item: {...item}})} className="p-1.5 rounded-full text-slate-300 hover:bg-blue-50 hover:text-blue-500"><Pencil size={16}/></button>
                       <button onClick={() => deleteItem(activeCategory.id, item.id)} className="p-1.5 rounded-full text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   </div>
@@ -853,15 +932,23 @@ function App() {
                 </h3>
                 <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200">#{editingItem.item.adNo || '---'}</span>
              </div>
-             <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
-             <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
-             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
-               <span className="text-slate-400 text-xs font-bold">Fiyat:</span>
-               <input type="number" value={editingItem.item.price || ''} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, price: e.target.value } })} className="bg-transparent w-full text-sm outline-none" placeholder="0"/>
-             </div>
              
+             {/* BÖLÜM (KATEGORİ) SEÇİMİ - TAŞIMA İÇİN */}
+             <div className="flex items-center border rounded-lg bg-indigo-50 border-indigo-100 mb-2 p-2 gap-2">
+               <span className="text-indigo-800 text-xs font-bold w-12">Bölüm:</span>
+               <select 
+                 value={editingItem.targetCatId} 
+                 onChange={(e) => setEditingItem({ ...editingItem, targetCatId: e.target.value })}
+                 className="bg-transparent w-full text-sm outline-none text-indigo-900 font-medium"
+               >
+                 {categories.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+               </select>
+               <FolderInput size={16} className="text-indigo-400"/>
+             </div>
+
+             {/* ŞEHİR SEÇİMİ */}
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
-               <span className="text-slate-400 text-xs font-bold">Şehir:</span>
+               <span className="text-slate-400 text-xs font-bold w-12">Şehir:</span>
                <select 
                  value={editingItem.item.cityId || ''} 
                  onChange={(e) => {
@@ -873,6 +960,12 @@ function App() {
                  <option value="">Seçilmedi</option>
                  {cities.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                </select>
+               <MapPin size={16} className="text-slate-400"/>
+             </div>
+
+             <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
+               <span className="text-slate-400 text-xs font-bold">Fiyat:</span>
+               <input type="number" value={editingItem.item.price || ''} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, price: e.target.value } })} className="bg-transparent w-full text-sm outline-none" placeholder="0"/>
              </div>
 
              <div className="flex items-center border rounded-lg bg-slate-50 mb-2 p-2 gap-2">
@@ -887,6 +980,8 @@ function App() {
                </select>
              </div>
 
+             <input value={editingItem.item.contactName} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, contactName: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="İsim"/>
+             <input value={editingItem.item.phone} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, phone: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-2 text-sm" placeholder="Tel"/>
              <textarea value={editingItem.item.text} onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, text: e.target.value } })} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm h-20"/>
              
              <div className="bg-yellow-50 p-3 rounded-xl border-2 border-yellow-200 mb-4 shadow-sm">
