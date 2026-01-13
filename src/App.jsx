@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center">
+        <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center z-[100]">
           <AlertTriangle size={64} className="mb-4 text-red-600"/>
           <h1 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h1>
           <p className="text-sm mb-4 bg-white p-4 rounded border border-red-200 font-mono text-left w-full overflow-auto">
@@ -377,7 +377,7 @@ function App() {
     const detectedTags = availableTags.filter(tag => lowerText.includes(tag.toLocaleLowerCase('tr-TR')));
     const newAdNo = lastAdNumber + 1;
     
-    // --- AKILLI TARİH ALGILAYICI (GELİŞMİŞ) ---
+    // --- AKILLI TARİH ALGILAYICI ---
     let alarmTime = '';
     let alarmActive = false;
 
@@ -415,7 +415,6 @@ function App() {
             alarmActive = true;
         }
     }
-    // ----------------------------------------
 
     const newItem = { id: timestamp, adNo: newAdNo, text: text, phone, contactName, date: fullDate, price, alarmTime: alarmTime, alarmActive: alarmActive, tags: detectedTags, cityId: detectedCityId, cityName: detectedCityName, dealType: dealType };
     let targetCategoryId = 'cat_todo';
@@ -574,10 +573,11 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
-  // --- EKRAN TASARIMI (FIXED SCROLL DÜZELTMESİ YAPILDI) ---
+  // --- EKRAN TASARIMI ---
+   
   if (errorMsg) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center z-[100]">
         <AlertTriangle size={64} className="text-red-500 mb-4"/>
         <h1 className="text-2xl font-bold mb-2">Bir Sorun Oluştu</h1>
         <p className="text-slate-300 text-sm mb-6">{errorMsg}</p>
@@ -588,7 +588,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 z-[100]">
         <div className="animate-spin text-blue-600 mb-4 text-4xl">●</div>
       </div>
     );
@@ -596,7 +596,7 @@ function App() {
    
   if (!user) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white z-[100]">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
         <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V37</p>
@@ -610,82 +610,60 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- ANA DEĞİŞİKLİK: h-[100dvh] + flex-col ---
   return (
-    <div className="fixed inset-0 flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden">
       
-      {/* ÜST BAR (Sabit) */}
-      <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14 shrink-0">
-        <div className="flex items-center gap-2">
-          <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
-          <div className="flex flex-col justify-center h-full pt-1">
-            <h1 className="font-bold text-xs text-orange-400 leading-tight">Talep - Randevu Asistanı</h1>
-            <div className="flex items-center gap-2 mt-0">
-               <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
-               <div className="flex flex-col">
-                  <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V37</p>
-                  <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
-               </div>
+      {/* ----------------- SABİT ÜST KISIM (HEADER GROUP) ----------------- */}
+      <div className="flex-none bg-white z-40 relative shadow-sm">
+        
+        {/* 1. Logo ve Üst Bar */}
+        <div className="bg-slate-900 text-white p-2 flex justify-between items-center h-14">
+          <div className="flex items-center gap-2">
+            <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
+            <div className="flex flex-col justify-center h-full pt-1">
+              <h1 className="font-bold text-xs text-orange-400 leading-tight">Talep - Randevu Asistanı</h1>
+              <div className="flex items-center gap-2 mt-0">
+                 <img src="https://i.hizliresim.com/fa4ibjl.png" alt="Icon" className="h-9 w-auto object-contain"/>
+                 <div className="flex flex-col">
+                    <p className="text-[0.5rem] font-bold text-blue-300 uppercase tracking-wider leading-none">Pro V37</p>
+                    <p className="text-[0.5rem] text-slate-400 flex items-center gap-0.5"><Lock size={8}/> {user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</p>
+                 </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-1 items-center">
-           <button onClick={() => setShowFilters(!showFilters)} className="p-1.5 rounded-md hover:bg-slate-700"><Filter size={18} color="white"/></button>
-           <button onClick={() => setShowAddModal(true)} className="p-1.5 rounded-md hover:bg-slate-700"><Plus size={18} color="white"/></button>
-           <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 rounded-md hover:bg-slate-700">
-             {showMenu ? <X size={18} color="white"/> : <Menu size={18} color="white"/>}
-           </button>
-        </div>
-      </div>
-
-      {/* MENÜ */}
-      {showMenu && (
-        <div className="absolute top-14 right-2 bg-white rounded-xl shadow-2xl border border-slate-300 z-[100] w-64 p-2 animate-in slide-in-from-top-2">
-          <div className="px-3 py-2 border-b border-slate-100 mb-2">
-            <p className="text-xs font-bold text-slate-800">{user.displayName}</p>
-            <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+          <div className="flex gap-1 items-center">
+             <button onClick={() => setShowFilters(!showFilters)} className="p-1.5 rounded-md hover:bg-slate-700"><Filter size={18} color="white"/></button>
+             <button onClick={() => setShowAddModal(true)} className="p-1.5 rounded-md hover:bg-slate-700"><Plus size={18} color="white"/></button>
+             <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 rounded-md hover:bg-slate-700">
+               {showMenu ? <X size={18} color="white"/> : <Menu size={18} color="white"/>}
+             </button>
           </div>
-          <button onClick={testAlarm} className="w-full text-left px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-lg flex gap-2 font-bold mb-1 border border-green-200">
-            <Volume2 size={16}/> Bildirim ve Sesi Test Et
-          </button>
-          <div className="h-px bg-slate-100 my-1"></div>
-          <button onClick={() => {setShowImportModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg flex gap-2 font-bold mb-1 border border-purple-200"><Upload size={16}/> Veri Yükle (.txt)</button>
-          <button onClick={downloadAllData} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 rounded-lg flex gap-2"><Download size={16}/> Tüm Verileri İndir</button>
-          <button onClick={downloadFilteredData} className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg flex gap-2 font-medium"><FileText size={16}/> Şu Anki Listeyi İndir</button>
-          <div className="h-px bg-slate-100 my-1"></div>
-          <button onClick={() => {setShowCityManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><MapPin size={16}/> Şehirleri Düzenle</button>
-          <button onClick={() => {setEditingCategoryData({...activeCategory}); setShowEditCategoryModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><Pencil size={16}/> Bölümü Düzenle</button>
-          <button onClick={() => {setShowTagManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><Tag size={16}/> Etiketleri Düzenle</button>
-          <div className="h-px bg-slate-100 my-1"></div>
-          <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex gap-2 font-bold"><LogOut size={16}/> Çıkış Yap</button>
         </div>
-      )}
 
-      {/* KATEGORİLER (Sabit) */}
-      <div className="bg-white border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide shrink-0">
-        <div className="flex p-2 gap-2 w-max">
-          {categories.map(cat => (
-            <button key={cat.id} onClick={() => {setActiveTabId(cat.id); setIsCalendarView(false);}} 
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2 ${activeTabId === cat.id ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-orange-400/50' : 'bg-slate-900 text-white/80 border-slate-900 hover:bg-slate-800'}`}>
-              <span className="text-orange-400">{getIcon(cat.icon)}</span> {cat.title}
+        {/* 2. Kategoriler (Randevular, Yapılacaklar...) */}
+        <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide bg-white">
+          <div className="flex p-2 gap-2 w-max">
+            {categories.map(cat => (
+              <button key={cat.id} onClick={() => {setActiveTabId(cat.id); setIsCalendarView(false);}} 
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2 ${activeTabId === cat.id ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-orange-400/50' : 'bg-slate-900 text-white/80 border-slate-900 hover:bg-slate-800'}`}>
+                <span className="text-orange-400">{getIcon(cat.icon)}</span> {cat.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Takvim Butonu */}
+        {activeTabId === 'cat_randevu' && (
+          <div className="px-4 py-2 flex justify-end border-b border-slate-200 bg-slate-50">
+            <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
+              {isCalendarView ? <><CheckSquare size={14}/> Liste Görünümü</> : <><CalendarDays size={14}/> Takvim Görünümü</>}
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* TAKVİM GEÇİŞ BUTONU (Sabit) */}
-      {activeTabId === 'cat_randevu' && (
-        <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200 shrink-0">
-          <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
-            {isCalendarView ? <><CheckSquare size={14}/> Liste Görünümü</> : <><CalendarDays size={14}/> Takvim Görünümü</>}
-          </button>
-        </div>
-      )}
-
-      {/* FİLTRELER (Sabit) */}
-      {!isCalendarView && (
-        <>
-          <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 shrink-0">
+        {/* 4. Şehir Filtreleri */}
+        {!isCalendarView && (
+          <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 bg-slate-100">
             <div className="flex px-2 gap-2 w-max items-center">
               <MapPin size={14} className="text-slate-400"/>
               <button onClick={() => setActiveCityFilter('all')} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>Tümü</button>
@@ -696,49 +674,54 @@ function App() {
               ))}
             </div>
           </div>
+        )}
 
-          {activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
-            <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2 shrink-0">
-              <div className="flex gap-2 w-max items-center">
-                <Wallet size={14} className="text-slate-400 mr-1"/>
-                <button onClick={() => setActiveDealType('all')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}>Tümü</button>
-                <button onClick={() => setActiveDealType('sale')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'sale' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-slate-200'}`}>Satılık</button>
-                <button onClick={() => setActiveDealType('rent')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'rent' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-slate-200'}`}>Kiralık</button>
-              </div>
+        {/* 5. Satılık/Kiralık Filtreleri */}
+        {!isCalendarView && activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
+          <div className="border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2 bg-slate-50">
+            <div className="flex gap-2 w-max items-center">
+              <Wallet size={14} className="text-slate-400 mr-1"/>
+              <button onClick={() => setActiveDealType('all')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}>Tümü</button>
+              <button onClick={() => setActiveDealType('sale')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'sale' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-slate-200'}`}>Satılık</button>
+              <button onClick={() => setActiveDealType('rent')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'rent' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-slate-200'}`}>Kiralık</button>
             </div>
-          )}
+          </div>
+        )}
 
-          {showFilters && (
-            <div className="bg-slate-100 border-b border-slate-200 p-3 z-10 shrink-0">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
-                <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
-                  <option value="date_desc">En Yeni</option>
-                  <option value="date_asc">En Eski</option>
-                  <option value="price_asc">Fiyat (Artan)</option>
-                  <option value="price_desc">Fiyat (Azalan)</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="text-slate-500 text-xs font-bold flex gap-1"><Banknote size={14}/> Fiyat:</div>
-                <input type="number" placeholder="Min" value={priceFilter.min} onChange={(e)=>setPriceFilter({...priceFilter, min: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
-                <input type="number" placeholder="Max" value={priceFilter.max} onChange={(e)=>setPriceFilter({...priceFilter, max: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
-              </div>
-              <div className="flex gap-2 w-full overflow-x-auto pb-1">
-                {availableTags.map(tag => (
-                  <button key={tag} onClick={() => toggleFilter(tag)} className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${activeFilters.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
-                    {tag}
-                  </button>
-                ))}
-              </div>
+        {/* 6. Ekstra Filtreler (Açılırsa) */}
+        {!isCalendarView && showFilters && (
+          <div className="border-b border-slate-200 p-3 z-10 bg-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
+              <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
+                <option value="date_desc">En Yeni</option>
+                <option value="date_asc">En Eski</option>
+                <option value="price_asc">Fiyat (Artan)</option>
+                <option value="price_desc">Fiyat (Azalan)</option>
+              </select>
             </div>
-          )}
-        </>
-      )}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-slate-500 text-xs font-bold flex gap-1"><Banknote size={14}/> Fiyat:</div>
+              <input type="number" placeholder="Min" value={priceFilter.min} onChange={(e)=>setPriceFilter({...priceFilter, min: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+              <input type="number" placeholder="Max" value={priceFilter.max} onChange={(e)=>setPriceFilter({...priceFilter, max: e.target.value})} className="w-1/3 bg-white border border-slate-300 rounded-lg p-1.5 text-xs"/>
+            </div>
+            <div className="flex gap-2 w-full overflow-x-auto pb-1">
+              {availableTags.map(tag => (
+                <button key={tag} onClick={() => toggleFilter(tag)} className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap ${activeFilters.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      {/* ----------------- SABİT ÜST KISIM BİTTİ ----------------- */}
 
-      {/* İÇERİK ALANI (SCROLLABLE & MIN-H FIX) */}
-      <div className="flex-1 overflow-y-auto min-h-0 pb-40 p-4 bg-slate-50 touch-pan-y">
-        {/* TAKVİM GÖRÜNÜMÜ */}
+
+      {/* ----------------- ORTA KISIM (KAYDIRILABİLİR) ----------------- */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-24"> 
+        {/* pb-24: Listenin en altı giriş kutusunun altında kalmasın diye boşluk */}
+        
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex justify-between items-center mb-4">
@@ -770,7 +753,6 @@ function App() {
             </div>
           </div>
         ) : (
-          /* LİSTE GÖRÜNÜMÜ */
           displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
             <div className="space-y-3">
               {displayItems.map((item) => (
@@ -834,10 +816,12 @@ function App() {
           )
         )}
       </div>
+      {/* ----------------- ORTA KISIM BİTTİ ----------------- */}
 
-      {/* GİRİŞ ALANI (Sabit) */}
+
+      {/* ----------------- ALT KISIM (SABİT GİRİŞ ALANI) ----------------- */}
       {!isCalendarView && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
+        <div className="bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50 shrink-0 relative">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
           <div className="flex gap-2 items-end">
             <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
@@ -860,11 +844,34 @@ function App() {
           </div>
         </div>
       )}
+      {/* ----------------- ALT KISIM BİTTİ ----------------- */}
 
-      {/* MODALLAR */}
-      
+
+      {/* MENÜLER VE MODALLAR (AYNEN KORUNDU) */}
+      {showMenu && (
+        <div className="absolute top-14 right-2 bg-white rounded-xl shadow-2xl border border-slate-300 z-[100] w-64 p-2 animate-in slide-in-from-top-2">
+          <div className="px-3 py-2 border-b border-slate-100 mb-2">
+            <p className="text-xs font-bold text-slate-800">{user.displayName}</p>
+            <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+          </div>
+          <button onClick={testAlarm} className="w-full text-left px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-lg flex gap-2 font-bold mb-1 border border-green-200">
+            <Volume2 size={16}/> Bildirim ve Sesi Test Et
+          </button>
+          <div className="h-px bg-slate-100 my-1"></div>
+          <button onClick={() => {setShowImportModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg flex gap-2 font-bold mb-1 border border-purple-200"><Upload size={16}/> Veri Yükle (.txt)</button>
+          <button onClick={downloadAllData} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 rounded-lg flex gap-2"><Download size={16}/> Tüm Verileri İndir</button>
+          <button onClick={downloadFilteredData} className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg flex gap-2 font-medium"><FileText size={16}/> Şu Anki Listeyi İndir</button>
+          <div className="h-px bg-slate-100 my-1"></div>
+          <button onClick={() => {setShowCityManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><MapPin size={16}/> Şehirleri Düzenle</button>
+          <button onClick={() => {setEditingCategoryData({...activeCategory}); setShowEditCategoryModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><Pencil size={16}/> Bölümü Düzenle</button>
+          <button onClick={() => {setShowTagManagerModal(true); setShowMenu(false);}} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg flex gap-2"><Tag size={16}/> Etiketleri Düzenle</button>
+          <div className="h-px bg-slate-100 my-1"></div>
+          <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex gap-2 font-bold"><LogOut size={16}/> Çıkış Yap</button>
+        </div>
+      )}
+
       {viewingDayDate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
             <button onClick={() => setViewingDayDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
             <h3 className="font-bold text-lg mb-4 text-slate-800 border-b pb-2">{viewingDayDate.toLocaleDateString('tr-TR')}</h3>
@@ -903,7 +910,7 @@ function App() {
       )}
 
       {calendarSelectedDate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm relative">
             <button onClick={() => setCalendarSelectedDate(null)} className="absolute top-3 right-3 text-slate-400"><X size={20}/></button>
             <h3 className="font-bold text-lg mb-1">{calendarSelectedDate.toLocaleDateString('tr-TR')}</h3>
@@ -918,7 +925,7 @@ function App() {
       )}
       
       {showImportModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg flex items-center gap-2"><Upload className="text-purple-600"/> Dosya Yükle</h3>
@@ -938,7 +945,7 @@ function App() {
       )}
 
       {showCityManagerModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
             <h3 className="font-bold mb-4 flex items-center gap-2"><MapPin size={18} className="text-orange-500"/> Şehir Yönetimi</h3>
             <div className="mb-4 space-y-2">
@@ -964,7 +971,7 @@ function App() {
 
       {/* Edit Item Modal */}
       {editingItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
              <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -1049,7 +1056,7 @@ function App() {
       )}
 
       {showTagManagerModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm h-3/4 flex flex-col">
             <h3 className="font-bold mb-4 flex items-center gap-2"><Tag size={18}/> Etiketleri Düzenle</h3>
             <div className="flex gap-2 mb-4">
@@ -1070,7 +1077,7 @@ function App() {
       )}
       
        {showEditCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 className="font-bold mb-4"><Pencil size={18}/> Düzenle</h3>
             <input value={editingCategoryData.title} onChange={(e) => setEditingCategoryData({...editingCategoryData, title: e.target.value})} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm"/>
@@ -1084,7 +1091,7 @@ function App() {
         </div>
       )}
        {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 className="font-bold mb-4 flex items-center gap-2"><Plus size={18}/> Yeni Bölüm</h3>
             <input placeholder="Bölüm Adı" value={newCatTitle} onChange={(e) => setNewCatTitle(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-2 mb-3 text-sm"/>
@@ -1096,7 +1103,7 @@ function App() {
       )}
 
       {showInstallModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 z-[100] overflow-y-auto">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm relative my-8">
             <button onClick={() => setShowInstallModal(false)} className="absolute top-4 right-4 text-slate-400"><X/></button>
             <h3 className="text-lg font-bold text-center mb-6">Kurulum</h3>
@@ -1107,7 +1114,7 @@ function App() {
       )}
       
       {showManualContactModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 className="font-bold mb-4">Manuel Kişi Ekle</h3>
             <input placeholder="Adı Soyadı" value={manualContactName} onChange={(e) => setManualContactName(e.target.value)} className="w-full bg-slate-50 border rounded-lg p-3 mb-3 text-sm"/>
