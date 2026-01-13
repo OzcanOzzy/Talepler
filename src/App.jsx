@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import { ..., signInWithRedirect, ... } from "firebase/auth";
 import { 
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
