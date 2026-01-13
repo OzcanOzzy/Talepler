@@ -136,15 +136,11 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    // --- GLOBAL CSS FIX (KLAVYE VE SCROLL İÇİN) ---
+    // --- CSS DÜZELTMELERİ (KİLİTLEME YERİNE SCROLL İYİLEŞTİRME) ---
     const style = document.createElement('style');
     style.innerHTML = `
-      html, body, #root {
-        height: 100%;
-        overflow: hidden; /* Dış scrollu engelle */
-      }
-      /* İç scroll alanının davranışı */
-      .scroll-container {
+      /* Scroll davranışını yumuşat */
+      .smooth-scroll {
         -webkit-overflow-scrolling: touch;
       }
     `;
@@ -412,7 +408,7 @@ function App() {
         targetDate.setDate(targetDate.getDate() + 7);
     }
 
-    // SAAT ALGILAMA (17de, 17'de, 17:00, 5 te, saat 5)
+    // SAAT ALGILAMA
     let hours = 9; 
     let minutes = 0;
     let timeFound = false;
@@ -693,10 +689,9 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- ANA EKRAN YAPISI (FLEX COLUMN) ---
-  // h-screen kullanılarak ekran boyutu sınırlanır.
+  // --- ANA EKRAN YAPISI ---
   return (
-    <div className="flex flex-col w-full h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="flex flex-col w-full h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
       
       {/* 1. ÜST KISIM (Sabit) */}
       <div className="flex-none bg-white z-40 shadow-sm">
@@ -798,7 +793,7 @@ function App() {
       </div>
 
       {/* 2. ORTA KISIM (Scrollable Liste) */}
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 scroll-container min-h-0">
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 pb-[150px] smooth-scroll min-h-0">
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
