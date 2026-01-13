@@ -66,7 +66,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // --- KOD İÇİNDEKİ VARSAYILANLAR (MASTER) ---
+  // --- KOD İÇİNDEKİ VARSAYILANLAR ---
   const defaultCategories = [
     { id: 'cat_randevu', title: 'Randevular', keywords: 'randevu,görüşme,buluşma,toplantı,yarın,saat,gösterilecek,gösterim,sunum,bakılacak', items: [], icon: 'calendar' },
     { id: 'cat_todo', title: 'Yapılacaklar', keywords: 'yapılacak,hatırlat,alınacak,git,gel,ara,sor,gönder,hazırla,not', items: [], icon: 'check' },
@@ -136,20 +136,12 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    // GLOBAL CSS FIX: APK Kaydırma Sorunu İçin "body" kilitleme
-    const style = document.createElement('style');
-    style.innerHTML = `
-      html, body, #root {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        overscroll-behavior: none;
-        position: fixed;
-        width: 100%;
-      }
-    `;
-    document.head.appendChild(style);
+    // --- SCROLL SORUNU İÇİN KESİN ÇÖZÜM ---
+    // Sayfanın (body) kaymasını engelle, sadece içerik kaysın.
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
 
     const timeout = setTimeout(() => {
         if(loading) {
@@ -287,7 +279,6 @@ function App() {
 
   const addToGoogleCalendar = (item) => {
     let targetDate;
-    
     if (item.alarmTime) {
       targetDate = new Date(item.alarmTime);
     } else {
@@ -295,11 +286,9 @@ function App() {
       targetDate.setHours(targetDate.getHours() + 1);
       targetDate.setMinutes(0);
     }
-
     const startDate = targetDate;
     const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     const formatDate = (date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
-    
     const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Randevu: " + (item.contactName || "Müşteri"))}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(item.text + "\nTel: " + (item.phone || '-'))}`;
     window.open(url, '_blank');
   };
@@ -380,6 +369,7 @@ function App() {
     reader.readAsText(file, "UTF-8");
   };
 
+  // --- GELİŞMİŞ SAAT VE TARİH ALGILAYICI (GÜNCELLENDİ) ---
   const parseDateFromText = (text) => {
     const now = new Date();
     const lower = text.toLocaleLowerCase('tr-TR');
@@ -415,20 +405,46 @@ function App() {
         targetDate.setDate(targetDate.getDate() + 7);
     }
 
-    const timeMatch = lower.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
+    // SAAT ALGILAMA (17de, 17'de, 17:00, 5 te, saat 5)
     let hours = 9; 
     let minutes = 0;
+    let timeFound = false;
 
-    if (timeMatch) {
-        hours = parseInt(timeMatch[1]);
-        if (timeMatch[3]) minutes = parseInt(timeMatch[3]);
+    // 1. Format: 14:30, 14.30, 09:00 (Net format)
+    const explicitTime = lower.match(/(\d{1,2})[.:](\d{2})/);
+    if (explicitTime) {
+        hours = parseInt(explicitTime[1]);
+        minutes = parseInt(explicitTime[2]);
+        timeFound = true;
+    } 
+    // 2. Format: "17'de", "17 de", "5 te", "saat 5" (Ekli ve Kelimeli)
+    else {
+        // Ekli sayıları yakala: 17'de, 5'te, 5 te, 5te
+        const suffixTime = lower.match(/(\d{1,2})\s*(?:'|’)?\s*(?:de|da|te|ta)\b/);
+        // "Saat X" formatını yakala
+        const saatWordTime = lower.match(/saat\s*(\d{1,2})/);
+
+        if (suffixTime) {
+             hours = parseInt(suffixTime[1]);
+             timeFound = true;
+        } else if (saatWordTime) {
+             hours = parseInt(saatWordTime[1]);
+             timeFound = true;
+        }
+    }
+
+    if (timeFound) {
+        // Eğer saat 8'den küçükse ve "sabah"/"gece" denmemişse, öğleden sonra (PM) kabul et.
+        // Örn: "5'te" -> 17:00, "2'de" -> 14:00
         if (hours < 8 && !lower.includes('sabah') && !lower.includes('gece')) {
             hours += 12;
         }
+        targetDate.setHours(hours, minutes, 0, 0);
         found = true;
+    } else {
+        // Tarih bulundu ama saat yoksa 09:00 yap
+        targetDate.setHours(9, 0, 0, 0);
     }
-
-    targetDate.setHours(hours, minutes, 0, 0);
 
     if (found) {
         const y = targetDate.getFullYear();
@@ -677,9 +693,8 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- KİLİTLİ EKRAN YAPISI ---
   return (
-    <div className="fixed inset-0 w-full h-full bg-slate-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 flex flex-col w-full h-full bg-slate-50 font-sans text-slate-800">
       
       {/* ----------------- SABİT ÜST KISIM (HEADER GROUP) ----------------- */}
       <div className="flex-none bg-white z-40 relative shadow-sm">
@@ -787,7 +802,7 @@ function App() {
 
 
       {/* ----------------- ORTA KISIM (KAYDIRILABİLİR) ----------------- */}
-      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-32" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'none' }}> 
+      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50 p-4 pb-40" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}> 
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
