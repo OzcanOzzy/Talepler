@@ -239,14 +239,10 @@ function App() {
     }
   };
 
-  // --- BURASI DEĞİŞTİRİLDİ ---
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    // signInWithPopup YERİNE signInWithRedirect kullanıldı:
     try { await signInWithRedirect(auth, provider); } catch (error) { alert("Giriş Hatası: " + error.message); }
   };
-  // ---------------------------
-
   const handleLogout = () => signOut(auth);
 
   useEffect(() => {
@@ -614,11 +610,12 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
+  // --- ANA DEĞİŞİKLİK BURADA (Scroll Fix) ---
   return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+    <div className="flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
       
       {/* ÜST BAR */}
-      <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14">
+      <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14 shrink-0">
         <div className="flex items-center gap-2">
           <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
           <div className="flex flex-col justify-center h-full pt-1">
@@ -665,7 +662,7 @@ function App() {
       )}
 
       {/* KATEGORİLER */}
-      <div className="bg-white border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide">
+      <div className="bg-white border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide shrink-0">
         <div className="flex p-2 gap-2 w-max">
           {categories.map(cat => (
             <button key={cat.id} onClick={() => {setActiveTabId(cat.id); setIsCalendarView(false);}} 
@@ -678,7 +675,7 @@ function App() {
 
       {/* TAKVİM GEÇİŞ BUTONU */}
       {activeTabId === 'cat_randevu' && (
-        <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200">
+        <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200 shrink-0">
           <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
             {isCalendarView ? <><CheckSquare size={14}/> Liste Görünümü</> : <><CalendarDays size={14}/> Takvim Görünümü</>}
           </button>
@@ -688,7 +685,7 @@ function App() {
       {/* FİLTRELER */}
       {!isCalendarView && (
         <>
-          <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2">
+          <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 shrink-0">
             <div className="flex px-2 gap-2 w-max items-center">
               <MapPin size={14} className="text-slate-400"/>
               <button onClick={() => setActiveCityFilter('all')} className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeCityFilter === 'all' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-300'}`}>Tümü</button>
@@ -701,7 +698,7 @@ function App() {
           </div>
 
           {activeTabId !== 'cat_todo' && activeTabId !== 'cat_randevu' && (
-            <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2">
+            <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 px-2 shrink-0">
               <div className="flex gap-2 w-max items-center">
                 <Wallet size={14} className="text-slate-400 mr-1"/>
                 <button onClick={() => setActiveDealType('all')} className={`text-xs px-4 py-1 rounded-md border font-bold transition-all ${activeDealType === 'all' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'}`}>Tümü</button>
@@ -712,7 +709,7 @@ function App() {
           )}
 
           {showFilters && (
-            <div className="bg-slate-100 border-b border-slate-200 p-3 z-10">
+            <div className="bg-slate-100 border-b border-slate-200 p-3 z-10 shrink-0">
               <div className="flex items-center gap-2 mb-3">
                 <div className="text-slate-500 text-xs font-bold flex gap-1"><ArrowUpDown size={14}/> Sırala:</div>
                 <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg p-2 flex-1 outline-none">
