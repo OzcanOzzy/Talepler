@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center">
+        <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center">
           <AlertTriangle size={64} className="mb-4 text-red-600"/>
           <h1 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h1>
           <p className="text-sm mb-4 bg-white p-4 rounded border border-red-200 font-mono text-left w-full overflow-auto">
@@ -377,7 +377,7 @@ function App() {
     const detectedTags = availableTags.filter(tag => lowerText.includes(tag.toLocaleLowerCase('tr-TR')));
     const newAdNo = lastAdNumber + 1;
     
-    // --- AKILLI TARİH ALGILAYICI (YENİ) ---
+    // --- AKILLI TARİH ALGILAYICI (GELİŞMİŞ) ---
     let alarmTime = '';
     let alarmActive = false;
 
@@ -387,7 +387,6 @@ function App() {
         alarmTime = `${year}-${month}-${day}T09:00`; 
         alarmActive = true;
     } else {
-        // Otomatik Metin Analizi (Yarın, Bugün, Saat X)
         const timeMatch = lowerText.match(/saat\s*(\d{1,2})(:(\d{2}))?/);
         const hasYarin = lowerText.includes('yarın');
         const hasBugun = lowerText.includes('bugün');
@@ -396,7 +395,7 @@ function App() {
             let targetDate = new Date();
             if (hasYarin) targetDate.setDate(targetDate.getDate() + 1);
             
-            let hours = 9; // Varsayılan 09:00
+            let hours = 9; 
             let minutes = 0;
 
             if (timeMatch) {
@@ -406,7 +405,6 @@ function App() {
 
             targetDate.setHours(hours, minutes, 0, 0);
             
-            // Formatla: YYYY-MM-DDTHH:MM
             const y = targetDate.getFullYear();
             const m = String(targetDate.getMonth() + 1).padStart(2, '0');
             const d = String(targetDate.getDate()).padStart(2, '0');
@@ -446,7 +444,7 @@ function App() {
     setInputText('');
     setTimeout(() => setFeedbackMsg(''), 3000);
 
-    // OTO TAKVİM TETİKLEME (Otomatik Pencere Açma)
+    // OTO TAKVİM TETİKLEME
     if (alarmActive && alarmTime) {
        addToGoogleCalendar(newItem);
     }
@@ -576,8 +574,7 @@ function App() {
   const addNewCity = () => { if (!newCityTitle) return; setCities([...cities, { id: `city_${Date.now()}`, title: newCityTitle, keywords: newCityKeywords }]); setNewCityTitle(''); setNewCityKeywords(''); };
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
-  // --- EKRAN TASARIMI ---
-   
+  // --- EKRAN TASARIMI (FIXED SCROLL DÜZELTMESİ YAPILDI) ---
   if (errorMsg) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -613,11 +610,11 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- ANA DEĞİŞİKLİK (SCROLL İÇİN FIXED LAYOUT) ---
+  // --- ANA DEĞİŞİKLİK: h-[100dvh] + flex-col ---
   return (
-    <div className="fixed inset-0 flex flex-col bg-slate-50 font-sans text-slate-800 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col h-[100dvh] bg-slate-50 font-sans text-slate-800 overflow-hidden">
       
-      {/* ÜST BAR */}
+      {/* ÜST BAR (Sabit) */}
       <div className="bg-slate-900 text-white p-2 flex justify-between items-center shadow-lg z-30 h-14 shrink-0">
         <div className="flex items-center gap-2">
           <img src="https://i.hizliresim.com/arpast7.jpeg" alt="Logo" className="w-10 h-10 object-cover rounded-md border border-slate-600"/>
@@ -664,7 +661,7 @@ function App() {
         </div>
       )}
 
-      {/* KATEGORİLER */}
+      {/* KATEGORİLER (Sabit) */}
       <div className="bg-white border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide shrink-0">
         <div className="flex p-2 gap-2 w-max">
           {categories.map(cat => (
@@ -676,7 +673,7 @@ function App() {
         </div>
       </div>
 
-      {/* TAKVİM GEÇİŞ BUTONU */}
+      {/* TAKVİM GEÇİŞ BUTONU (Sabit) */}
       {activeTabId === 'cat_randevu' && (
         <div className="bg-slate-50 px-4 py-2 flex justify-end border-b border-slate-200 shrink-0">
           <button onClick={() => setIsCalendarView(!isCalendarView)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isCalendarView ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-200'}`}>
@@ -685,7 +682,7 @@ function App() {
         </div>
       )}
 
-      {/* FİLTRELER */}
+      {/* FİLTRELER (Sabit) */}
       {!isCalendarView && (
         <>
           <div className="bg-slate-100 border-b border-slate-200 overflow-x-auto z-10 scrollbar-hide py-2 shrink-0">
@@ -739,8 +736,8 @@ function App() {
         </>
       )}
 
-      {/* İÇERİK ALANI */}
-      <div className="flex-1 overflow-y-auto overscroll-none pb-24 p-4 bg-slate-50">
+      {/* İÇERİK ALANI (SCROLLABLE & MIN-H FIX) */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-40 p-4 bg-slate-50 touch-pan-y">
         {/* TAKVİM GÖRÜNÜMÜ */}
         {isCalendarView && activeTabId === 'cat_randevu' ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -838,9 +835,9 @@ function App() {
         )}
       </div>
 
-      {/* GİRİŞ ALANI */}
+      {/* GİRİŞ ALANI (Sabit) */}
       {!isCalendarView && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-20">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
           <div className="flex gap-2 items-end">
             <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
