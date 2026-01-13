@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { ..., signInWithRedirect, ... } from "firebase/auth";
+import { getAuth, signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 import { 
   Mic, Send, Plus, Trash2, Download, Settings, Upload,
   X, User, Phone, Pencil, Smartphone, Menu, CheckSquare, Briefcase, Map, Home,
@@ -103,7 +103,7 @@ function App() {
   const [sortOption, setSortOption] = useState('date_desc');
   const [priceFilter, setPriceFilter] = useState({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
-  
+   
   const [isCalendarView, setIsCalendarView] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
@@ -239,10 +239,14 @@ function App() {
     }
   };
 
+  // --- BURASI DEĞİŞTİRİLDİ ---
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    try { await signInWithPopup(auth, provider); } catch (error) { alert("Giriş Hatası: " + error.message); }
+    // signInWithPopup YERİNE signInWithRedirect kullanıldı:
+    try { await signInWithRedirect(auth, provider); } catch (error) { alert("Giriş Hatası: " + error.message); }
   };
+  // ---------------------------
+
   const handleLogout = () => signOut(auth);
 
   useEffect(() => {
@@ -448,7 +452,7 @@ function App() {
 
   const handleCalendarAdd = () => { if(!calendarInputText) return; processCommand(calendarInputText, null, calendarSelectedDate); setCalendarSelectedDate(null); setCalendarInputText(''); };
   const startListeningCalendar = () => { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) return alert("Desteklenmiyor"); const recognition = new SpeechRecognition(); recognition.lang = 'tr-TR'; recognition.onstart = () => setIsListening(true); recognition.onend = () => setIsListening(false); recognition.onresult = (e) => setCalendarInputText(e.results[0][0].transcript); recognition.start(); };
-  
+   
   const getProcessedItems = (items) => {
     let result = [...items];
     if (activeCityFilter !== 'all') { result = result.filter(item => item.cityId === activeCityFilter); }
@@ -471,7 +475,7 @@ function App() {
   const formatCurrency = (amount) => { if (!amount) return ''; return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(amount); };
   const toggleFilter = (tag) => { if (activeFilters.includes(tag)) setActiveFilters(activeFilters.filter(t => t !== tag)); else setActiveFilters([...activeFilters, tag]); };
   const handleContactPick = async () => { if ('contacts' in navigator && 'ContactsManager' in window) { try { const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false }); if (contacts.length) setInputText(`${contacts[0].name[0]} (${contacts[0].tel ? contacts[0].tel[0] : ''}) - `); } catch (ex) { setShowManualContactModal(true); } } else { setShowManualContactModal(true); } };
-  
+   
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Ses desteği yok.");
@@ -543,13 +547,13 @@ function App() {
     
     filteredItems.forEach((item) => {
         content += `------------------------------------------------------------------------\r\n`;
-        content += `[#${item.adNo || '---'}]  ${item.cityName ? item.cityName.toUpperCase() : 'GENEL'}  |  ${item.dealType === 'rent' ? 'KİRALIK' : 'SATILIK'}  |  ${item.date}\r\n`;
+        content += `[#${item.adNo || '---'}]   ${item.cityName ? item.cityName.toUpperCase() : 'GENEL'}   |   ${item.dealType === 'rent' ? 'KİRALIK' : 'SATILIK'}   |   ${item.date}\r\n`;
         content += `------------------------------------------------------------------------\r\n`;
         if(item.contactName || item.phone) {
           content += `MÜŞTERİ : ${item.contactName || 'İsimsiz'}\r\n`;
           content += `TELEFON : ${item.phone || '-'}\r\n`;
         }
-        if(item.price) content += `FİYAT   : ${formatCurrency(item.price)}\r\n`;
+        if(item.price) content += `FİYAT    : ${formatCurrency(item.price)}\r\n`;
         content += `\r\nDETAYLAR:\r\n${item.text}\r\n\r\n`;
     });
     
@@ -573,7 +577,7 @@ function App() {
   const removeCity = (cityId) => { if(confirm("Silinsin mi?")) setCities(cities.filter(c => c.id !== cityId)); };
 
   // --- EKRAN TASARIMI ---
-  
+   
   if (errorMsg) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -593,7 +597,7 @@ function App() {
       </div>
     );
   }
-  
+   
   if (!user) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
@@ -776,15 +780,15 @@ function App() {
               {displayItems.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
                   <div className="flex justify-between items-start mb-2">
-                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
-                        {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
-                     </div>
-                     {item.price > 0 && (
-                       <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
-                         <Banknote size={12}/>{formatCurrency(item.price)}
-                       </div>
-                     )}
+                      <div className="flex items-center gap-2">
+                         <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100">#{item.adNo || '---'}</span>
+                         {item.cityName && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-0.5"><MapPin size={10}/>{item.cityName}</span>}
+                      </div>
+                      {item.price > 0 && (
+                        <div className="bg-green-50 text-green-700 px-2 py-1 rounded-lg border border-green-100 text-xs font-bold flex items-center gap-1">
+                          <Banknote size={12}/>{formatCurrency(item.price)}
+                        </div>
+                      )}
                   </div>
                   
                   {(item.phone || item.contactName) && (
@@ -952,8 +956,8 @@ function App() {
                <select 
                  value={editingItem.item.cityId || ''} 
                  onChange={(e) => {
-                    const selectedCity = cities.find(c => c.id === e.target.value);
-                    setEditingItem({ ...editingItem, item: { ...editingItem.item, cityId: e.target.value, cityName: selectedCity ? selectedCity.title : '' } })
+                   const selectedCity = cities.find(c => c.id === e.target.value);
+                   setEditingItem({ ...editingItem, item: { ...editingItem.item, cityId: e.target.value, cityName: selectedCity ? selectedCity.title : '' } })
                  }}
                  className="bg-transparent w-full text-sm outline-none"
                >
