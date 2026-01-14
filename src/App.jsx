@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-screen p-6 bg-red-50 text-red-900 text-center">
+        <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center z-[100]">
           <AlertTriangle size={64} className="mb-4 text-red-600"/>
           <h1 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h1>
           <p className="text-sm mb-4 bg-white p-4 rounded border border-red-200 font-mono text-left w-full overflow-auto">
@@ -136,12 +136,15 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    // --- CSS DÜZELTMELERİ (KİLİTLEME YERİNE SCROLL İYİLEŞTİRME) ---
+    // --- KESİN SCROLL ÇÖZÜMÜ (CSS RESET) ---
     const style = document.createElement('style');
     style.innerHTML = `
-      /* Scroll davranışını yumuşat */
-      .smooth-scroll {
-        -webkit-overflow-scrolling: touch;
+      html, body, #root {
+        height: 100% !important;
+        width: 100% !important;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Dış kaydırmayı engelle */
       }
     `;
     document.head.appendChild(style);
@@ -656,7 +659,7 @@ function App() {
    
   if (errorMsg) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6 bg-slate-900 text-white text-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center z-[100]">
         <AlertTriangle size={64} className="text-red-500 mb-4"/>
         <h1 className="text-2xl font-bold mb-2">Bir Sorun Oluştu</h1>
         <p className="text-slate-300 text-sm mb-6">{errorMsg}</p>
@@ -667,7 +670,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 z-[100]">
         <div className="animate-spin text-blue-600 mb-4 text-4xl">●</div>
       </div>
     );
@@ -675,7 +678,7 @@ function App() {
    
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white z-[100]">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
         <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V37</p>
@@ -689,12 +692,12 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- ANA EKRAN YAPISI ---
+  // --- IZGARA SİSTEMİ (GRID LAYOUT) - %100 ÇÖZÜM ---
   return (
-    <div className="flex flex-col w-full h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+    <div className="grid grid-rows-[auto_1fr_auto] w-full h-full bg-slate-50 font-sans text-slate-800 fixed inset-0 overflow-hidden">
       
-      {/* 1. ÜST KISIM (Sabit) */}
-      <div className="flex-none bg-white z-40 shadow-sm">
+      {/* 1. ÜST KISIM (Sabit) - Row 1 */}
+      <div className="z-40 shadow-sm bg-white">
         {/* Logo Bar */}
         <div className="bg-slate-900 text-white p-2 flex justify-between items-center h-14">
           <div className="flex items-center gap-2">
@@ -792,11 +795,11 @@ function App() {
         )}
       </div>
 
-      {/* 2. ORTA KISIM (Scrollable Liste) */}
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 pb-[150px] smooth-scroll min-h-0">
+      {/* 2. ORTA KISIM (Scrollable Liste) - Row 2 */}
+      <div className="overflow-y-auto bg-slate-50 p-4 min-h-0 relative">
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-20">
             <div className="flex justify-between items-center mb-4">
               <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft/></button>
               <h3 className="font-bold text-lg text-slate-800">{currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}</h3>
@@ -827,7 +830,7 @@ function App() {
           </div>
         ) : (
           displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
-            <div className="space-y-3 pb-4">
+            <div className="space-y-3 pb-24">
               {displayItems.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
                   <div className="flex justify-between items-start mb-2">
@@ -890,9 +893,9 @@ function App() {
         )}
       </div>
 
-      {/* 3. ALT KISIM (Giriş Alanı - Klavye açılınca yukarı itilecek) */}
+      {/* 3. ALT KISIM (Giriş Alanı - Klavye açılınca yukarı itilecek) - Row 3 */}
       {!isCalendarView && (
-        <div className="flex-none bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
+        <div className="z-50 bg-white border-t border-slate-200 p-3 pb-4 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
           <div className="flex gap-2 items-end">
             <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
