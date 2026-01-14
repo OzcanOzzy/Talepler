@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-red-50 text-red-900 text-center z-[100]">
+        <div className="flex flex-col items-center justify-center h-screen p-6 bg-red-50 text-red-900 text-center">
           <AlertTriangle size={64} className="mb-4 text-red-600"/>
           <h1 className="text-2xl font-bold mb-2">Bir Hata Oluştu</h1>
           <p className="text-sm mb-4 bg-white p-4 rounded border border-red-200 font-mono text-left w-full overflow-auto">
@@ -136,18 +136,12 @@ function App() {
 
   // --- FIREBASE VERİ DİNLEME ---
   useEffect(() => {
-    // --- KESİN SCROLL ÇÖZÜMÜ (CSS RESET) ---
-    const style = document.createElement('style');
-    style.innerHTML = `
-      html, body, #root {
-        height: 100% !important;
-        width: 100% !important;
-        margin: 0;
-        padding: 0;
-        overflow: hidden; /* Dış kaydırmayı engelle */
-      }
-    `;
-    document.head.appendChild(style);
+    // --- RESETLENDİ: ARTIK BODY KİLİDİ YOK, DOĞAL AKIŞ VAR ---
+    // Sadece body'nin arka plan rengini ayarlıyoruz.
+    document.body.style.backgroundColor = '#f8fafc'; // slate-50
+    document.body.style.overflow = ''; // Kilidi kaldır
+    document.body.style.position = ''; // Kilidi kaldır
+    document.body.style.height = ''; 
 
     const timeout = setTimeout(() => {
         if(loading) {
@@ -659,7 +653,7 @@ function App() {
    
   if (errorMsg) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center z-[100]">
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-slate-900 text-white text-center">
         <AlertTriangle size={64} className="text-red-500 mb-4"/>
         <h1 className="text-2xl font-bold mb-2">Bir Sorun Oluştu</h1>
         <p className="text-slate-300 text-sm mb-6">{errorMsg}</p>
@@ -670,7 +664,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 z-[100]">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="animate-spin text-blue-600 mb-4 text-4xl">●</div>
       </div>
     );
@@ -678,7 +672,7 @@ function App() {
    
   if (!user) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white z-[100]">
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <img src="https://i.hizliresim.com/arpast7.jpeg" className="w-32 h-32 rounded-2xl shadow-2xl mb-6"/>
         <h1 className="text-2xl font-bold mb-1">Emlak Asistanı Pro</h1>
         <p className="text-blue-300 text-sm mb-8 font-bold tracking-widest">CLOUD V37</p>
@@ -692,12 +686,12 @@ function App() {
   const activeCategory = categories.find(c => c.id === activeTabId) || categories[0];
   const displayItems = getProcessedItems(activeCategory.items);
 
-  // --- IZGARA SİSTEMİ (GRID LAYOUT) - %100 ÇÖZÜM ---
+  // --- ANA EKRAN YAPISI (STICKY) ---
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] w-full h-full bg-slate-50 font-sans text-slate-800 fixed inset-0 overflow-hidden">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 relative">
       
-      {/* 1. ÜST KISIM (Sabit) - Row 1 */}
-      <div className="z-40 shadow-sm bg-white">
+      {/* 1. ÜST KISIM (Yapışkan) */}
+      <div className="sticky top-0 z-40 bg-white shadow-sm">
         {/* Logo Bar */}
         <div className="bg-slate-900 text-white p-2 flex justify-between items-center h-14">
           <div className="flex items-center gap-2">
@@ -795,11 +789,11 @@ function App() {
         )}
       </div>
 
-      {/* 2. ORTA KISIM (Scrollable Liste) - Row 2 */}
-      <div className="overflow-y-auto bg-slate-50 p-4 min-h-0 relative">
+      {/* 2. ORTA KISIM (Normal Akış - pb-40 ile alt boşluk) */}
+      <div className="p-4 pb-40"> 
         
         {isCalendarView && activeTabId === 'cat_randevu' ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-20">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex justify-between items-center mb-4">
               <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft/></button>
               <h3 className="font-bold text-lg text-slate-800">{currentCalendarDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}</h3>
@@ -830,7 +824,7 @@ function App() {
           </div>
         ) : (
           displayItems.length === 0 ? <div className="text-center py-12 opacity-40">Kayıt yok.</div> : (
-            <div className="space-y-3 pb-24">
+            <div className="space-y-3">
               {displayItems.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
                   <div className="flex justify-between items-start mb-2">
@@ -893,9 +887,9 @@ function App() {
         )}
       </div>
 
-      {/* 3. ALT KISIM (Giriş Alanı - Klavye açılınca yukarı itilecek) - Row 3 */}
+      {/* 3. ALT KISIM (Sabit Giriş - Fixed) */}
       {!isCalendarView && (
-        <div className="z-50 bg-white border-t border-slate-200 p-3 pb-4 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-50">
           {feedbackMsg && <div className="absolute -top-10 left-0 right-0 text-center text-xs font-bold text-white bg-green-600 py-2 shadow-lg animate-bounce">{feedbackMsg}</div>}
           <div className="flex gap-2 items-end">
             <button onClick={handleContactPick} className="bg-slate-900 text-white p-3 rounded-xl mb-1 flex-shrink-0 active:scale-95 shadow-md"><User size={24}/></button>
